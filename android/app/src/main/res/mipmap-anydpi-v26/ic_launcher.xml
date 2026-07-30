@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  絵柄は背景(ic_launcher_background.png)にすべて入っている。
-  前景は「何も描かない」層だが、パスの無い <vector> を置くと
-  VectorDrawable が "no path defined" で読み込みに失敗し、
-  アイコン全体が描画されなくなる（v0.11.1 がその状態だった）。
-  確実に読み込める透明色を使う。
+  アダプティブアイコンは 108dp のうち中央 72dp しか表示されない（外周は
+  マスクとパララックスで削られる）。絵柄を全面に敷くと 2/3 に切り取られて
+  「拡大されて何か分からない」状態になる（v0.11.2 がそれ）。
+  そのため絵柄は中央 72dp 相当に収めた前景として置き、外周は絵柄の
+  グラデーションに合わせた下地で埋める。
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@android:color/transparent" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>
