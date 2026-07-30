@@ -51,6 +51,10 @@ jobs:
       HAS_RELEASE_KEY: ${{ secrets.SERENDIPITY_RELEASE_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # リリースノートを前回ビルド時点からの git log で作るので全履歴が要る。
+          # 既定の浅いクローンだと範囲指定が解決できない。
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -207,11 +211,43 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
+
+          # 配布URLは latest 固定で中身だけ差し替わるため、リリースページの本文が
+          # 唯一の「今どの版で、何が変わったか」の手がかりになる。毎回書き直す。
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+
+          # 前回の公開時点を release の body に埋めた marker から拾い、そこからの
+          # コミットを変更点として並べる。marker が無い初回は直近10件で代用する。
+          PREV=$(gh release view latest --json body -q .body 2>/dev/null \
+            | grep -oP '<!-- built-from: \K[0-9a-f]{40}' || true)
+          if [ -n "$PREV" ] && git cat-file -e "$PREV^{commit}" 2>/dev/null; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE="-10"
+          fi
+          CHANGES=$(git log $RANGE --no-merges --pretty='- %s' || true)
+          [ -z "$CHANGES" ] && CHANGES="- （このビルドでのアプリの変更はなし）"
+
+          {
+            echo "## v$VERSION"
+            echo
+            echo "端末に入っている版は、アプリ下部シートの「診断」欄で確認できる。"
+            echo
+            echo "### このビルドでの変更"
+            echo
+            echo "$CHANGES"
+            echo
+            echo "---"
+            echo "\`main\` の最新release署名ビルド。push のたびに \`app-release.apk\` が差し替わる。"
+            echo "ダウンロードURLは常に同じ。"
+            echo "<!-- built-from: ${{ github.sha }} -->"
+          } > release-notes.md
+
           gh release view latest > /dev/null 2>&1 || \
-            gh release create latest \
-              --title "latest（最新の正式ビルド）" \
-              --notes "main の最新release署名ビルド。push のたびに app-release.apk が差し替わる。"
+            gh release create latest --title "latest（最新の正式ビルド）" --notes "初回"
+          gh release edit latest --title "latest（v$VERSION）" --notes-file release-notes.md
           gh release upload latest "$APK" --clobber
-          echo "### release APK を更新した" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### release APK を更新した (v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"

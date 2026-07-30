@@ -71,6 +71,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
+import com.cloud42labo.serendipityspot.BuildConfig
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.PlaceResult
 import com.cloud42labo.serendipityspot.data.Spot
@@ -555,11 +556,22 @@ private fun DiagnosticsBlock(
     onRefresh: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        Text(
-            text = "診断",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "診断",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // 「更新できたのか」を利用者が自力で確かめられるようにする。
+            // 配布URLは latest 固定で中身だけ差し替わるため、これが無いと
+            // 手元のAPKがどの版か分からない。
+            Text(
+                text = "v${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "登録: ${lastRegistration ?: "まだ記録なし"}",
