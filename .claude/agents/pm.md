@@ -39,10 +39,21 @@ tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 **「何をして、何を見て、それを伝えてほしい」までに留める。**
 返ってきた結果を解釈して次の手を決めるのは、オーナーではなくこちらの仕事です。
 
+**実機での操作を頼むときは、必ずダウンロードURLとバージョンを添える。**
+オーナーに探させない。URLは固定で、中身だけ差し替わる。
+
+```
+https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk
+```
+
 悪い例:
 > 以下の表を見て、どの候補に当てはまるか教えてください（6行の判定表）
+> ※URLも書かれておらず、オーナーが自分で探すことになる
 
 良い例:
+> v0.12.1 を配布しました。
+> https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk
+>
 > 旗の近くで地図を1回タップして、登録画面が出るかどうかだけ教えてください。
 > 出なかった場合は診断欄の「最後の操作」に表示されている文字列もお願いします。
 
