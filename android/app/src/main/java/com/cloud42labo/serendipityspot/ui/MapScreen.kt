@@ -7,6 +7,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +66,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
@@ -95,6 +99,12 @@ private const val CURRENT_LOCATION_ZOOM = 16f
 /** 竿の根元が地点を指すように、左下寄りに合わせる。 */
 private val FLAG_ANCHOR = Offset(0.25f, 0.95f)
 
+/**
+ * 通知（ジオフェンス）を張れる件数の上限。GeofenceHelper.MAX_GEOFENCES と同じ値で、
+ * Android/Google Play 側の制限。これを超えた分は登録できても通知は届かない。
+ */
+private const val NOTIFIABLE_LIMIT = 100
+
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
 @Composable
@@ -117,6 +127,7 @@ fun MapScreen(
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(FALLBACK_CENTER, CURRENT_LOCATION_ZOOM)
@@ -179,17 +190,22 @@ fun MapScreen(
             TopAppBar(
                 title = {
                     if (searchMode) {
+                        // 虫めがねを押しても、キーボードのEnter（検索キー）を押しても同じ。
+                        val runSearch: () -> Unit = {
+                            val center = cameraPositionState.position.target
+                            onSearch(query, center.latitude, center.longitude)
+                            keyboardController?.hide()
+                        }
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
                             placeholder = { Text("住所・駅名・施設名") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { runSearch() }),
                             trailingIcon = {
-                                IconButton(onClick = {
-                                    val center = cameraPositionState.position.target
-                                    onSearch(query, center.latitude, center.longitude)
-                                }) {
+                                IconButton(onClick = runSearch) {
                                     Icon(Icons.Filled.Search, contentDescription = "検索する")
                                 }
                             },
@@ -256,8 +272,13 @@ fun MapScreen(
                 },
             ) {
                 uiState.spots.forEach { spot ->
+                    // MarkerState をその場で作ると再コンポーズのたびに作り直され、
+                    // 目印の再生成でタップを取りこぼすことがある。位置が変わるまで使い回す。
+                    val markerState = remember(spot.id, spot.lat, spot.lng) {
+                        MarkerState(LatLng(spot.lat, spot.lng))
+                    }
                     Marker(
-                        state = MarkerState(LatLng(spot.lat, spot.lng)),
+                        state = markerState,
                         title = spot.title,
                         snippet = spot.memo,
                         icon = plantedFlag,
@@ -269,13 +290,18 @@ fun MapScreen(
                 // タップすると登録に進み、保存されたら立った旗に変わる。
                 if (signedIn) {
                     uiState.searchResults.forEach { result ->
+                        val markerState = remember(result.lat, result.lng, result.name) {
+                            MarkerState(LatLng(result.lat, result.lng))
+                        }
                         Marker(
-                            state = MarkerState(LatLng(result.lat, result.lng)),
+                            state = markerState,
                             title = result.name,
                             snippet = "タップして登録",
                             icon = unplantedFlag,
                             anchor = FLAG_ANCHOR,
                             onClick = {
+                                // 薄い旗をタップしたら、そのまま登録画面へ進む。
+                                // true を返して既定の吹き出し表示を抑える。
                                 pendingTitle = result.name
                                 pendingLatLng = LatLng(result.lat, result.lng)
                                 true
@@ -419,7 +445,7 @@ private fun SpotListSheet(
     ) {
         item {
             Text(
-                text = "登録スポット（${spots.size}）",
+                text = "登録スポット（${spots.size} / $NOTIFIABLE_LIMIT）",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
@@ -428,6 +454,24 @@ private fun SpotListSheet(
                 text = "地図をタップすると新しいスポットを登録できます",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            val over = spots.size - NOTIFIABLE_LIMIT
+            Text(
+                text = if (over > 0) {
+                    "通知できるのは新しい $NOTIFIABLE_LIMIT 件までです（Androidの上限）。" +
+                        "古い $over 件は一覧に残りますが、近づいても通知は届きません。"
+                } else {
+                    "通知できるのは $NOTIFIABLE_LIMIT 件までです（Androidの上限）。" +
+                        "超えた分は古い方から通知の対象外になります。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (over > 0) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
             Spacer(modifier = Modifier.height(12.dp))

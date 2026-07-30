@@ -44,7 +44,10 @@ class GeofenceHelper(private val context: Context) {
             return
         }
 
-        val targets = spots.take(MAX_GEOFENCES)
+        // スプレッドシートは追記式で、読み込んだ spots は古い順に並んでいる。
+        // take() だと「古い100件を残す」ことになり、新しく登録したスポットほど
+        // 通知されないという逆の挙動になる。末尾（新しい方）から取る。
+        val targets = spots.takeLast(MAX_GEOFENCES)
         val geofences = targets.map { spot ->
             Geofence.Builder()
                 .setRequestId(spot.id)
