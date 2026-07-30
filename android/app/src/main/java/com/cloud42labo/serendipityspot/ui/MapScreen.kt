@@ -302,7 +302,8 @@ fun MapScreen(
                     route = uiState.routeToSpot,
                     isLoading = uiState.isLoadingRoute,
                     onClose = onClearRoute,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 128.dp),
+                    // 右下の現在地FAB（56dp + 余白16dp）より上に置いて重ならないようにする。
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp),
                 )
             }
 
@@ -407,87 +408,94 @@ private fun SpotListSheet(
     onTestNotification: () -> Unit,
     onRefreshDiagnostics: () -> Unit,
 ) {
-    Column(
+    // シート全体を1つの LazyColumn にする。見出しと診断を外側の Column に置いて
+    // 高さで頭打ちにすると、はみ出した分（テスト通知ボタン）が切り捨てられて
+    // 永久に押せなくなる。実際 v0.10.x はその状態だった。
+    LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 400.dp)
             .padding(bottom = 16.dp),
     ) {
-        Text(
-            text = "登録スポット（${spots.size}）",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "地図をタップすると新しいスポットを登録できます",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider()
+        item {
+            Text(
+                text = "登録スポット（${spots.size}）",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "地図をタップすると新しいスポットを登録できます",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider()
+        }
 
         if (spots.isEmpty()) {
-            Text(
-                text = "まだ登録がありません。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(24.dp),
-            )
+            item {
+                Text(
+                    text = "まだ登録がありません。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(24.dp),
+                )
+            }
         } else {
-            LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
-                items(spots, key = { it.id }) { spot ->
-                    ListItem(
-                        headlineContent = { Text(spot.title) },
-                        supportingContent = {
-                            if (spot.memo.isNotBlank()) Text(spot.memo)
-                        },
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Filled.LocationOn,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        },
-                        trailingContent = {
-                            Row {
-                                IconButton(onClick = { onStreetViewClick(spot) }) {
-                                    Icon(
-                                        // ストリートビューの目印はペグマン（人型）なので、
-                                        // 人のアイコンをそのまま使う。
-                                        imageVector = Icons.Filled.Person,
-                                        contentDescription = "${spot.title} をストリートビューで見る",
-                                    )
-                                }
-                                IconButton(onClick = { onEditClick(spot) }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = "${spot.title} を編集",
-                                    )
-                                }
-                                IconButton(onClick = { onDeleteClick(spot) }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "${spot.title} を削除",
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                }
+            items(spots, key = { it.id }) { spot ->
+                ListItem(
+                    headlineContent = { Text(spot.title) },
+                    supportingContent = {
+                        if (spot.memo.isNotBlank()) Text(spot.memo)
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    trailingContent = {
+                        Row {
+                            IconButton(onClick = { onStreetViewClick(spot) }) {
+                                Icon(
+                                    // ストリートビューの目印はペグマン（人型）なので、
+                                    // 人のアイコンをそのまま使う。
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = "${spot.title} をストリートビューで見る",
+                                )
                             }
-                        },
-                        modifier = Modifier.clickable { onSpotClick(spot) },
-                    )
-                }
+                            IconButton(onClick = { onEditClick(spot) }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = "${spot.title} を編集",
+                                )
+                            }
+                            IconButton(onClick = { onDeleteClick(spot) }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Delete,
+                                    contentDescription = "${spot.title} を削除",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.clickable { onSpotClick(spot) },
+                )
             }
         }
 
-        HorizontalDivider()
-        DiagnosticsBlock(
-            lastRegistration = lastRegistration,
-            lastGeofenceEvent = lastGeofenceEvent,
-            onTestNotification = onTestNotification,
-            onRefresh = onRefreshDiagnostics,
-        )
+        item {
+            HorizontalDivider()
+            DiagnosticsBlock(
+                lastRegistration = lastRegistration,
+                lastGeofenceEvent = lastGeofenceEvent,
+                onTestNotification = onTestNotification,
+                onRefresh = onRefreshDiagnostics,
+            )
+        }
     }
 }
 
