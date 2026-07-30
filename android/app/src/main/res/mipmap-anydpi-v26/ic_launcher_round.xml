@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  絵柄は背景(ic_launcher_background.png)にすべて入っている。
+  前景は「何も描かない」層だが、パスの無い <vector> を置くと
+  VectorDrawable が "no path defined" で読み込みに失敗し、
+  アイコン全体が描画されなくなる（v0.11.1 がその状態だった）。
+  確実に読み込める透明色を使う。
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@android:color/transparent" />
 </adaptive-icon>
