@@ -1,6 +1,6 @@
 # ついでにスポット (Android)
 
-[serendipity-spot](../serendipity-spot/) にあったvibe codingのHTML試作（地図タップでスポット登録
+[serendipity-spot](https://github.com/cloud42-labo/experimental/tree/main/serendipity-spot) にあったvibe codingのHTML試作（地図タップでスポット登録
 →近づいたら通知）を、実機のAndroidで動くネイティブアプリにした版。
 
 **行ってみたいが、そこ自体は目的地ではない場所**をピン留めしておくアプリ。別の用事で
@@ -120,7 +120,7 @@ cp local.properties.example local.properties
 
 ## ビルド・実行
 
-Android Studio でこのディレクトリ（`serendipity-spot-android/`）を開いて実行するのが確実。
+Android Studio でこのディレクトリ（`android/`）を開いて実行するのが確実。
 CLIの場合:
 
 ```sh
