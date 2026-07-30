@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -97,8 +98,22 @@ private val FALLBACK_CENTER = LatLng(35.6581, 139.7017)
 private const val SPOT_ZOOM = 17f
 private const val CURRENT_LOCATION_ZOOM = 16f
 
-/** 竿の根元が地点を指すように、左下寄りに合わせる。 */
-private val FLAG_ANCHOR = Offset(0.25f, 0.95f)
+/**
+ * `ic_flag_pin.xml` の viewport(24x24) のうち、実際に絵がある範囲。
+ * 竿 x5.2..7.0 / y2.5..21.5、旗 x7.0..18.4 / y3.2..12.0 の外接矩形。
+ * ここを変えたら [FLAG_ANCHOR] も計算し直すこと。
+ */
+private const val FLAG_VIEWPORT = 24f
+private const val FLAG_INK_LEFT = 5.2f
+private const val FLAG_INK_TOP = 2.5f
+private const val FLAG_INK_RIGHT = 18.4f
+private const val FLAG_INK_BOTTOM = 21.5f
+
+/**
+ * 竿の根元が地点を指すように合わせる。切り出したビットマップ内での、
+ * 竿の中心x = (6.1-5.2)/13.2 ≒ 0.068、竿の下端y = 1.0。
+ */
+private val FLAG_ANCHOR = Offset(0.068f, 1.0f)
 
 /**
  * 通知（ジオフェンス）を張れる件数の上限。GeofenceHelper.MAX_GEOFENCES と同じ値で、
@@ -145,6 +160,9 @@ fun MapScreen(
     var deletingSpot by remember { mutableStateOf<Spot?>(null) }
     // 初回だけ現在地へ寄せる。以後はユーザーの操作を邪魔しない。
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
+    // 「タップしたのに何も起きない」を端末上で切り分けるための記録。
+    // 地図に届いたのか、旗に吸われたのかが診断欄に出る。通知の診断と同じ考え方。
+    var lastMapEvent by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission || initialLocationApplied) return@LaunchedEffect
@@ -241,6 +259,7 @@ fun MapScreen(
                 spots = uiState.spots,
                 lastRegistration = uiState.lastRegistration,
                 lastGeofenceEvent = uiState.lastGeofenceEvent,
+                lastMapEvent = lastMapEvent,
                 onTestNotification = onTestNotification,
                 onRefreshDiagnostics = onRefreshDiagnostics,
                 onEditClick = { editingSpot = it },
@@ -266,6 +285,7 @@ fun MapScreen(
                     myLocationButtonEnabled = false,
                 ),
                 onMapClick = { latLng ->
+                    lastMapEvent = "地図タップ: %.5f, %.5f".format(latLng.latitude, latLng.longitude)
                     if (signedIn) {
                         pendingTitle = ""
                         pendingLatLng = latLng
@@ -284,6 +304,14 @@ fun MapScreen(
                         snippet = spot.memo,
                         icon = plantedFlag,
                         anchor = FLAG_ANCHOR,
+                        onClick = { marker ->
+                            // true を返して既定動作を止める。既定では吹き出しを出すのに
+                            // 加えて「そのマーカーが中心に来るようカメラを動かす」ため、
+                            // 地図が動いて次のタップ位置がずれる。
+                            lastMapEvent = "旗タップ: ${spot.title}"
+                            marker.showInfoWindow()
+                            true
+                        },
                     )
                 }
 
@@ -303,6 +331,7 @@ fun MapScreen(
                             onClick = {
                                 // 薄い旗をタップしたら、そのまま登録画面へ進む。
                                 // true を返して既定の吹き出し表示を抑える。
+                                lastMapEvent = "候補タップ: ${result.name}"
                                 pendingTitle = result.name
                                 pendingLatLng = LatLng(result.lat, result.lng)
                                 true
@@ -350,28 +379,61 @@ fun MapScreen(
                 )
             }
 
-            if (signedIn && hasLocationPermission) {
-                FloatingActionButton(
-                    onClick = {
-                        scope.launch {
-                            val client = LocationServices.getFusedLocationProviderClient(context)
-                            val location = runCatching { client.lastLocation.await() }.getOrNull()
-                            if (location != null) {
-                                cameraPositionState.position = CameraPosition.fromLatLngZoom(
-                                    LatLng(location.latitude, location.longitude),
-                                    CURRENT_LOCATION_ZOOM,
-                                )
-                            } else {
-                                snackbarHostState.showSnackbar("現在地を取得できませんでした")
-                            }
-                        }
-                    },
+            // 地図の中心の照準。「＋」で登録したときにどこへ立つのかを示す。
+            if (signedIn) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.Center).size(20.dp),
+                )
+            }
+
+            if (signedIn) {
+                Column(
+                    horizontalAlignment = Alignment.End,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = "現在地へ移動",
-                    )
+                    // 地図タップに頼らない確実な入口。Maps SDK のタップ経路に
+                    // 依存しないので、「地図タップが効かない」ときの切り分けにも使える。
+                    FloatingActionButton(
+                        onClick = {
+                            val center = cameraPositionState.position.target
+                            lastMapEvent = "＋ボタン: %.5f, %.5f".format(center.latitude, center.longitude)
+                            pendingTitle = ""
+                            pendingLatLng = center
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "地図の中心にスポットを登録",
+                        )
+                    }
+
+                    if (hasLocationPermission) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        FloatingActionButton(
+                            onClick = {
+                                scope.launch {
+                                    val client = LocationServices.getFusedLocationProviderClient(context)
+                                    val location = runCatching { client.lastLocation.await() }.getOrNull()
+                                    if (location != null) {
+                                        cameraPositionState.position = CameraPosition.fromLatLngZoom(
+                                            LatLng(location.latitude, location.longitude),
+                                            CURRENT_LOCATION_ZOOM,
+                                        )
+                                    } else {
+                                        snackbarHostState.showSnackbar("現在地を取得できませんでした")
+                                    }
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = "現在地へ移動",
+                            )
+                        }
+                    }
                 }
             }
 
@@ -428,6 +490,7 @@ private fun SpotListSheet(
     spots: List<Spot>,
     lastRegistration: String?,
     lastGeofenceEvent: String?,
+    lastMapEvent: String?,
     onSpotClick: (Spot) -> Unit,
     onEditClick: (Spot) -> Unit,
     onDeleteClick: (Spot) -> Unit,
@@ -452,7 +515,7 @@ private fun SpotListSheet(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "地図をタップすると新しいスポットを登録できます",
+                text = "地図をタップ、または右下の「＋」で中心に登録できます",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp),
@@ -537,6 +600,7 @@ private fun SpotListSheet(
             DiagnosticsBlock(
                 lastRegistration = lastRegistration,
                 lastGeofenceEvent = lastGeofenceEvent,
+                lastMapEvent = lastMapEvent,
                 onTestNotification = onTestNotification,
                 onRefresh = onRefreshDiagnostics,
             )
@@ -552,6 +616,7 @@ private fun SpotListSheet(
 private fun DiagnosticsBlock(
     lastRegistration: String?,
     lastGeofenceEvent: String?,
+    lastMapEvent: String?,
     onTestNotification: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -579,6 +644,12 @@ private fun DiagnosticsBlock(
         )
         Text(
             text = "受信: ${lastGeofenceEvent ?: "まだ一度も受け取っていない"}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        // 「タップしたのに登録画面が出ない」ときに、地図に届いたのか旗に吸われたのかを
+        // ここで見分ける。旗タップと出るなら当たり判定の問題。
+        Text(
+            text = "最後の操作: ${lastMapEvent ?: "まだ地図に触れていない"}",
             style = MaterialTheme.typography.bodySmall,
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -807,7 +878,7 @@ private fun openStreetView(context: Context, lat: Double, lng: Double) {
  * **失敗しても null を返す。** 目印の見た目のために起動不能になるのは筋が悪いので、
  * 呼び出し側は null なら既定のマーカーにフォールバックする。
  */
-private fun flagDescriptor(context: Context, tint: Int, sizeDp: Int = 44): BitmapDescriptor? =
+private fun flagDescriptor(context: Context, tint: Int, heightDp: Int = 44): BitmapDescriptor? =
     runCatching {
         // BitmapDescriptorFactory は Maps が初期化されるまで使えない。
         // 地図の生成より先に呼ぶと落ちる（v0.10.0 の起動不能はこれが原因）。
@@ -816,10 +887,23 @@ private fun flagDescriptor(context: Context, tint: Int, sizeDp: Int = 44): Bitma
         val drawable = ContextCompat.getDrawable(context, R.drawable.ic_flag_pin)!!.mutate()
         DrawableCompat.setTint(drawable, tint)
 
-        val px = (sizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-        drawable.setBounds(0, 0, px, px)
-        drawable.draw(Canvas(bitmap))
+        // viewport 全体ではなく「絵のある範囲」だけを切り出してビットマップにする。
+        // 以前は 24x24 の viewport をそのまま 44dp 四方に描いており、面積の
+        // 半分以上が透明なのにマーカーの当たり判定を持っていた。旗の右下あたりの
+        // 「何も無いように見える場所」をタップすると地図ではなく旗に吸われる。
+        val inkWidth = FLAG_INK_RIGHT - FLAG_INK_LEFT
+        val inkHeight = FLAG_INK_BOTTOM - FLAG_INK_TOP
+        val scale = heightDp * context.resources.displayMetrics.density / inkHeight
+
+        val width = (inkWidth * scale).toInt().coerceAtLeast(1)
+        val height = (inkHeight * scale).toInt().coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val canvas = Canvas(bitmap)
+        canvas.translate(-FLAG_INK_LEFT * scale, -FLAG_INK_TOP * scale)
+        val viewport = (FLAG_VIEWPORT * scale).toInt()
+        drawable.setBounds(0, 0, viewport, viewport)
+        drawable.draw(canvas)
 
         BitmapDescriptorFactory.fromBitmap(bitmap)
     }.getOrNull()
