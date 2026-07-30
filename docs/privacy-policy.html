@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー — ついでにスポット</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .updated { color: #666; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<h1>プライバシーポリシー — ついでにスポット</h1>
+<p class="updated">最終更新日: 2026年7月30日</p>
+
+<p>
+「ついでにスポット」(以下「本アプリ」)は、cloud42-labo が個人で開発・提供する
+Androidアプリです。本ページは、本アプリが取得・利用する情報について説明します。
+</p>
+
+<h2>開発者・連絡先</h2>
+<p>
+cloud42-labo（個人開発）<br>
+連絡先: <a href="mailto:m.komaba@gmail.com">m.komaba@gmail.com</a>
+</p>
+
+<h2>本アプリの仕組み</h2>
+<p>
+本アプリに運営サーバーはありません。すべての処理は利用者の端末上、または
+利用者自身のGoogleアカウントとの間で完結します。開発者が本アプリの利用者データに
+アクセスすることはありません。
+</p>
+
+<h2>位置情報</h2>
+<p>
+登録した「スポット」に近づいたことを検知するため、端末の位置情報（Geofencing API）
+を使用します。位置情報は<strong>端末上でのみ処理され、どこにも送信されません</strong>。
+本アプリの外部（開発者を含む）に位置情報が渡ることはありません。
+</p>
+
+<h2>Googleアカウントへのアクセス</h2>
+<p>
+本アプリはGoogleアカウントでのサインインを求め、以下の2つの権限（スコープ）のみを
+要求します。
+</p>
+<ul>
+  <li>
+    <code>https://www.googleapis.com/auth/drive.file</code> —
+    本アプリが作成・利用するファイル（「Serendipity Spot」という名前のスプレッドシート
+    1つ）にのみアクセスします。利用者のGoogle Drive全体を見ることはできません。
+  </li>
+  <li>
+    <code>https://www.googleapis.com/auth/spreadsheets</code> —
+    上記のスプレッドシートに、登録したスポットの情報（名前・メモ・座標）を
+    読み書きするために使用します。
+  </li>
+</ul>
+<p>
+登録したスポットのデータは、<strong>利用者自身のGoogle Drive上のスプレッドシートに
+保存されます。</strong>開発者はこのデータを閲覧・取得することはできません。
+</p>
+
+<h2>アカウント情報</h2>
+<p>
+サインイン時にGoogleから取得するメールアドレス・表示名は、端末内の設定
+（SharedPreferences）にのみ保存され、外部に送信されることはありません。
+</p>
+
+<h2>広告・アナリティクス・第三者への提供</h2>
+<p>
+本アプリに広告・アクセス解析（アナリティクス）SDKは組み込まれていません。
+利用者のデータを第三者に販売・提供することもありません。
+</p>
+
+<h2>データの削除</h2>
+<p>
+以下のいずれかで、本アプリに関連するデータを削除・取り消せます。
+</p>
+<ul>
+  <li>Google Drive上の「Serendipity Spot」スプレッドシートを直接削除する</li>
+  <li>
+    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">
+    Googleアカウントのアクセス権限管理ページ</a>で、本アプリへのアクセスをいつでも取り消せる
+  </li>
+  <li>本アプリを端末からアンインストールすると、端末内のキャッシュ（サインイン情報等）が削除される</li>
+</ul>
+
+<h2>児童のプライバシー</h2>
+<p>本アプリは児童を対象としていません。</p>
+
+<h2>本ポリシーの変更</h2>
+<p>
+本ポリシーを変更する場合は、このページを更新します。変更履歴は
+<a href="https://github.com/cloud42-labo/serendipity-spot" target="_blank" rel="noopener">
+本アプリのリポジトリ</a>のコミット履歴で確認できます。
+</p>
+
+</body>
+</html>
