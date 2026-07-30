@@ -50,6 +50,7 @@
    - **Google Sheets API**
    - **Google Drive API**
    - **Maps SDK for Android**
+   - **Directions API**（通知タップ時の現在地からの徒歩ルート表示に使う）
 
 ### 2. OAuth同意画面
 
@@ -105,7 +106,13 @@ Credential Manager のサインインには、Android用とは**別に**「ウ�
 
 「認証情報を作成」→「APIキー」で発行し、「キーの制限」で
 - アプリケーションの制限: Androidアプリ → パッケージ名 + 上と同じSHA-1を登録
-- APIの制限: Maps SDK for Android のみに絞る
+- APIの制限: **Maps SDK for Android** と **Directions API** の2つに絞る
+
+> 通知タップ時の徒歩ルート取得は、このMaps用キーをそのまま流用してDirections API
+> （Web Service）を叩く。Androidアプリ制限付きのキーでWeb Service APIを呼ぶ場合、
+> リクエストに`X-Android-Package`/`X-Android-Cert`ヘッダーが必須になる（アプリ側は
+> 実行中のAPK自身の署名から自動で付与するので、追加設定は不要）。ヘッダーが正しくても
+> 上のAPI制限にDirections APIが入っていないと`REQUEST_DENIED`になる。
 
 ### 5. ローカルに設定を書く
 

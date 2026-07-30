@@ -10,13 +10,17 @@ import androidx.lifecycle.viewModelScope
 import com.cloud42labo.serendipityspot.auth.AuthorizationOutcome
 import com.cloud42labo.serendipityspot.auth.GoogleAuthManager
 import com.cloud42labo.serendipityspot.auth.SignedInUser
+import com.cloud42labo.serendipityspot.data.DirectionsRepository
 import com.cloud42labo.serendipityspot.data.PlaceResult
 import com.cloud42labo.serendipityspot.data.PlaceSearcher
+import com.cloud42labo.serendipityspot.data.RouteInfo
 import com.cloud42labo.serendipityspot.data.SheetsRepository
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
 import com.cloud42labo.serendipityspot.notification.NotificationHelper
 import com.cloud42labo.serendipityspot.data.Spot
 import com.cloud42labo.serendipityspot.location.GeofenceHelper
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class SpotUiState(
     val user: SignedInUser? = null,
@@ -36,6 +41,8 @@ data class SpotUiState(
     val lastGeofenceEvent: String? = null,
     val searchResults: List<PlaceResult> = emptyList(),
     val isSearching: Boolean = false,
+    val routeToSpot: RouteInfo? = null,
+    val isLoadingRoute: Boolean = false,
 )
 
 class SpotViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,6 +51,7 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = SheetsRepository(application)
     private val geofenceHelper = GeofenceHelper(application)
     private val placeSearcher = PlaceSearcher(application)
+    private val directionsRepository = DirectionsRepository(application)
 
     private var spreadsheetId: String? = null
 
@@ -158,8 +166,36 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(focusSpotId = null) }
     }
 
+    /** 通知タップ時にだけ呼ばれる。フォーカスと同時に現在地からの徒歩ルートも取りに行く。 */
     fun focusSpot(spotId: String) {
         _uiState.update { it.copy(focusSpotId = spotId) }
+        fetchRouteToSpot(spotId)
+    }
+
+    fun clearRoute() {
+        _uiState.update { it.copy(routeToSpot = null) }
+    }
+
+    private fun fetchRouteToSpot(spotId: String) {
+        val spot = _uiState.value.spots.firstOrNull { it.id == spotId } ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingRoute = true) }
+            val client = LocationServices.getFusedLocationProviderClient(getApplication())
+            val location = runCatching { client.lastLocation.await() }.getOrNull()
+            val route = location?.let {
+                directionsRepository.getWalkingRoute(
+                    origin = LatLng(it.latitude, it.longitude),
+                    destination = LatLng(spot.lat, spot.lng),
+                )
+            }
+            _uiState.update {
+                it.copy(
+                    isLoadingRoute = false,
+                    routeToSpot = route,
+                    errorMessage = if (route == null) "経路を取得できませんでした" else it.errorMessage,
+                )
+            }
+        }
     }
 
     fun refresh() {

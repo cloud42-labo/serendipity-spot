@@ -81,7 +81,9 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.cloud42labo.serendipityspot.data.RouteInfo
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -109,6 +111,7 @@ fun MapScreen(
     onSearch: (query: String, nearLat: Double, nearLng: Double) -> Unit,
     onClearSearch: () -> Unit,
     onFocusConsumed: () -> Unit,
+    onClearRoute: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -280,10 +283,27 @@ fun MapScreen(
                         )
                     }
                 }
+
+                uiState.routeToSpot?.let { route ->
+                    Polyline(
+                        points = route.points,
+                        color = plantedColor,
+                        width = 10f,
+                    )
+                }
             }
 
             if (!signedIn) {
                 SignInOverlay(onSignInClick = onSignInClick)
+            }
+
+            if (uiState.isLoadingRoute || uiState.routeToSpot != null) {
+                RouteInfoCard(
+                    route = uiState.routeToSpot,
+                    isLoading = uiState.isLoadingRoute,
+                    onClose = onClearRoute,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 128.dp),
+                )
             }
 
             if (resultListVisible && uiState.searchResults.isNotEmpty()) {
@@ -662,6 +682,35 @@ private fun SearchResults(
                     },
                     modifier = Modifier.clickable { onPick(result) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteInfoCard(
+    route: RouteInfo?,
+    isLoading: Boolean,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.padding(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("経路を確認中…")
+            } else if (route != null) {
+                Text("徒歩 ${route.durationText}・${route.distanceText}")
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = "経路を閉じる")
+                }
             }
         }
     }
