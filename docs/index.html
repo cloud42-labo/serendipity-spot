@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ついでにスポット</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.8; color: #1a1a1a; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+  .lead { color: #444; margin-top: 0; }
+  h2 { font-size: 1.1rem; margin-top: 2.2rem; }
+  ul { padding-left: 1.2rem; }
+  .note { background: #f5f5f7; padding: 1rem; border-radius: 8px; font-size: 0.92rem; }
+  footer { margin-top: 3rem; font-size: 0.85rem; color: #666; }
+  a { color: #4F46E5; }
+</style>
+</head>
+<body>
+
+<h1>ついでにスポット</h1>
+<p class="lead">行ってみたいが、そこ自体は目的地ではない場所を教えてくれるAndroidアプリ。</p>
+
+<h2>何をするアプリか</h2>
+<p>
+「今度あの店に行ってみたい」と思っても、そこを目的に出かけるほどではない場所があります。
+そういう場所は、たいてい忘れたままになります。
+</p>
+<p>
+このアプリは、そうした場所を地図にピン留めしておくと、<strong>別の用事でたまたま近くに
+来たときに通知します</strong>。目的地なら自分で行くので通知は要りません。目的地では
+ないからこそ通知が要る、というのがこのアプリの成り立ちです。
+</p>
+
+<h2>できること</h2>
+<ul>
+  <li>地図をタップ、または検索して、行ってみたい場所を登録する</li>
+  <li>登録した場所の半径150m以内に外から入ると、アプリを閉じていても通知が届く</li>
+  <li>通知をタップすると、現在地からその場所までの徒歩ルートと距離が出る</li>
+  <li>登録した場所は、自分のGoogleドライブのスプレッドシートに保存される</li>
+</ul>
+<p class="note">
+達成の記録も、催促もしません。行かなかったことを責められることはありません。
+</p>
+
+<h2>データの扱い</h2>
+<ul>
+  <li><strong>運営サーバーはありません。</strong>処理は端末上と、利用者自身のGoogleアカウントとの間で完結します</li>
+  <li>位置情報は端末上でのみ使われ、どこにも送信されません</li>
+  <li>登録した場所は、利用者自身のGoogleドライブのスプレッドシート1つに保存されます。開発者は閲覧できません</li>
+  <li>広告・アクセス解析は入っていません</li>
+</ul>
+<p><a href="privacy-policy.html">プライバシーポリシー</a></p>
+
+<h2>入手</h2>
+<p>
+現在はプレリリース版で、作者と、その家族・友人が使っている段階です。
+Google Play ストアでは配布していません。
+</p>
+<p>
+<a href="https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk">最新版のAPKをダウンロード</a>
+　/
+<a href="https://github.com/cloud42-labo/serendipity-spot">ソースコード（GitHub）</a>
+</p>
+
+<footer>
+  cloud42-labo（個人開発）　連絡先: <a href="mailto:m.komaba@gmail.com">m.komaba@gmail.com</a>
+</footer>
+
+</body>
+</html>
