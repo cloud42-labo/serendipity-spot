@@ -187,9 +187,15 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 は毎回同じ**なので、スマホのブラウザでこれを開けばよい。
 
 ```
-https://github.com/cloud42-labo/experimental/releases/download/dev/app-debug.apk
-https://github.com/cloud42-labo/experimental/releases/download/latest/app-release.apk
+https://github.com/cloud42-labo/serendipity-spot/releases/download/dev/app-debug.apk
+https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk
 ```
+
+`dev` と `latest` は**中身が差し替わる可動タグ**なので、これだけだと「この版のコードは
+どれか」を後から辿れない。そのためワークフローは、`versionName` が変わったときに
+`v<versionName>`（例: `v1.0.0`）の**動かないリリース**も1つ作り、その時点のAPKを付ける。
+過去の版に戻したいとき、`deliveries/` の各バージョンフォルダに対応するコードを見たいときは
+こちらを使う。
 
 ### 必要な準備（初回のみ）
 

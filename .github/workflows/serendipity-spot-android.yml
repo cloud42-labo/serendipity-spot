@@ -251,3 +251,34 @@ jobs:
           echo "### release APK を更新した (v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tag this version
+        # `latest` は中身が差し替わる可動タグなので、これだけだと「v1.0.0 のコードは
+        # どれか」を後から辿れない。versionName ごとに動かないタグを1つ残す。
+        # deliveries/ の各バージョンフォルダが「対応するコミットからビルドする」前提で
+        # 書かれているため、その対応先がこれになる。
+        #
+        # すでに同名タグがあれば何もしない（同じ版で何度ビルドしても増えない、
+        # 過去のタグを勝手に動かさない）。バージョンを上げ忘れたまま push しても
+        # 黙って通るだけで、ワークフローは落とさない。
+        if: ${{ env.HAS_RELEASE_KEY == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          TAG="v$VERSION"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::notice::$TAG は既にある。何もしない。"
+            exit 0
+          fi
+
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "$TAG" \
+            --notes "\`$TAG\` 時点のスナップショット。配布用の可動URLは \`latest\` の方。
+
+利用者向けの文書は [\`android/deliveries/$TAG/\`](https://github.com/${{ github.repository }}/tree/$TAG/android/deliveries/$TAG)（無い版もある）。"
+          gh release upload "$TAG" app/build/outputs/apk/release/app-release.apk
+
+          echo "::notice::$TAG を作成した"
