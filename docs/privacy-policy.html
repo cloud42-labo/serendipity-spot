@@ -45,19 +45,15 @@ cloud42-labo（個人開発）<br>
 
 <h2>Googleアカウントへのアクセス</h2>
 <p>
-本アプリはGoogleアカウントでのサインインを求め、以下の2つの権限（スコープ）のみを
+本アプリはGoogleアカウントでのサインインを求め、以下の権限（スコープ）のみを
 要求します。
 </p>
 <ul>
   <li>
     <code>https://www.googleapis.com/auth/drive.file</code> —
     本アプリが作成・利用するファイル（「Serendipity Spot」という名前のスプレッドシート
-    1つ）にのみアクセスします。利用者のGoogle Drive全体を見ることはできません。
-  </li>
-  <li>
-    <code>https://www.googleapis.com/auth/spreadsheets</code> —
-    上記のスプレッドシートに、登録したスポットの情報（名前・メモ・座標）を
-    読み書きするために使用します。
+    1つ）にのみアクセスします。<strong>利用者のGoogle Drive全体を見ることはできません。</strong>
+    このスプレッドシートに、登録したスポットの情報（名前・メモ・座標）を読み書きします。
   </li>
 </ul>
 <p>

@@ -21,7 +21,6 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.sheets.v4.Sheets
-import com.google.api.services.sheets.v4.SheetsScopes
 import kotlinx.coroutines.tasks.await
 
 data class SignedInUser(val email: String, val displayName: String?)
@@ -38,8 +37,7 @@ sealed interface AuthorizationOutcome {
  *
  *  - 認証: Credential Manager の Sign in with Google。旧 GoogleSignIn API は
  *    Googleがサポート終了を明示しているため使わない
- *  - 認可: AuthorizationClient で spreadsheets / drive.file スコープの
- *    アクセストークンを取る
+ *  - 認可: AuthorizationClient で drive.file スコープのアクセストークンを取る
  *
  * アクセストークンは1時間ほどで失効するので保持せず、必要になるたびに
  * [authorize] を呼ぶ。許可済みなら画面を出さずキャッシュ済みトークンが返る。
@@ -127,8 +125,20 @@ class GoogleAuthManager(context: Context) {
         private const val KEY_EMAIL = "email"
         private const val KEY_DISPLAY_NAME = "display_name"
 
+        /**
+         * `drive.file` だけを要求する。**`spreadsheets` は要求しない。**
+         *
+         * このアプリが使う Sheets API のメソッド（spreadsheets.create / get /
+         * values.get / values.append / values.update / batchUpdate）は、いずれも
+         * `drive.file` を受け付ける。自分が作ったファイルしか触らない設計なので
+         * これで足りる。
+         *
+         * `spreadsheets` は Google 分類で「機密性の高いスコープ」にあたり、
+         * 要求すると利用者に **「このアプリは Google で確認されていません」の
+         * 警告画面**が出る（審査を通すまで消えない）。`drive.file` は非機密なので
+         * 警告が出ず、審査も不要。要求する権限としても、こちらの方が狭い。
+         */
         private val REQUIRED_SCOPES = listOf(
-            Scope(SheetsScopes.SPREADSHEETS),
             Scope(DriveScopes.DRIVE_FILE),
         )
     }
