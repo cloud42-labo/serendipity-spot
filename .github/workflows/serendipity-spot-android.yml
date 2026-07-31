@@ -273,12 +273,19 @@ jobs:
             exit 0
           fi
 
+          # 本文は必ずファイル経由で渡す。--notes に複数行の文字列を直接書くと、
+          # 2行目以降が YAML のブロックスカラーの字下げから外れてワークフロー全体が
+          # 無効になる（jobが1つも起きずに failure になり、原因が分かりにくい）。
+          {
+            echo "\`$TAG\` 時点のスナップショット。配布用の可動URLは \`latest\` の方。"
+            echo
+            echo "利用者向けの文書は \`android/deliveries/$TAG/\`（無い版もある）。"
+          } > tag-notes.md
+
           gh release create "$TAG" \
             --target "${{ github.sha }}" \
             --title "$TAG" \
-            --notes "\`$TAG\` 時点のスナップショット。配布用の可動URLは \`latest\` の方。
-
-利用者向けの文書は [\`android/deliveries/$TAG/\`](https://github.com/${{ github.repository }}/tree/$TAG/android/deliveries/$TAG)（無い版もある）。"
+            --notes-file tag-notes.md
           gh release upload "$TAG" app/build/outputs/apk/release/app-release.apk
 
           echo "::notice::$TAG を作成した"
