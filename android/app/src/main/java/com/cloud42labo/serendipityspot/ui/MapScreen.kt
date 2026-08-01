@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +44,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -76,6 +73,9 @@ import com.cloud42labo.serendipityspot.BuildConfig
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.PlaceResult
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.ui.components.AppCard
+import com.cloud42labo.serendipityspot.ui.components.AppTextField
+import com.cloud42labo.serendipityspot.ui.theme.Spacing
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.BitmapDescriptor
@@ -215,11 +215,10 @@ fun MapScreen(
                             onSearch(query, center.latitude, center.longitude)
                             keyboardController?.hide()
                         }
-                        OutlinedTextField(
+                        AppTextField(
                             value = query,
                             onValueChange = { query = it },
                             placeholder = { Text("住所・駅名・施設名") },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { runSearch() }),
@@ -392,7 +391,7 @@ fun MapScreen(
             if (signedIn) {
                 Column(
                     horizontalAlignment = Alignment.End,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.lg),
                 ) {
                     // 地図タップに頼らない確実な入口。Maps SDK のタップ経路に
                     // 依存しないので、「地図タップが効かない」ときの切り分けにも使える。
@@ -411,7 +410,7 @@ fun MapScreen(
                     }
 
                     if (hasLocationPermission) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(Spacing.md))
                         FloatingActionButton(
                             onClick = {
                                 scope.launch {
@@ -505,22 +504,22 @@ private fun SpotListSheet(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 400.dp)
-            .padding(bottom = 16.dp),
+            .padding(bottom = Spacing.lg),
     ) {
         item {
             Text(
                 text = "登録スポット（${spots.size} / $NOTIFIABLE_LIMIT）",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = Spacing.xxl),
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = "地図をタップ、または右下の「＋」で中心に登録できます",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = Spacing.xxl),
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.xs))
             val over = spots.size - NOTIFIABLE_LIMIT
             Text(
                 text = if (over > 0) {
@@ -536,9 +535,9 @@ private fun SpotListSheet(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = Spacing.xxl),
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
             HorizontalDivider()
         }
 
@@ -548,7 +547,7 @@ private fun SpotListSheet(
                     text = "まだ登録がありません。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(Spacing.xxl),
                 )
             }
         } else {
@@ -620,14 +619,14 @@ private fun DiagnosticsBlock(
     onTestNotification: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl, vertical = Spacing.md)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "診断",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm))
             // 「更新できたのか」を利用者が自力で確かめられるようにする。
             // 配布URLは latest 固定で中身だけ差し替わるため、これが無いと
             // 手元のAPKがどの版か分からない。
@@ -652,10 +651,10 @@ private fun DiagnosticsBlock(
             text = "最後の操作: ${lastMapEvent ?: "まだ地図に触れていない"}",
             style = MaterialTheme.typography.bodySmall,
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         Row {
             TextButton(onClick = onTestNotification) { Text("テスト通知") }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Spacing.sm))
             TextButton(onClick = onRefresh) { Text("更新") }
         }
     }
@@ -664,12 +663,11 @@ private fun DiagnosticsBlock(
 @Composable
 private fun SignInOverlay(onSignInClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Card(
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        AppCard(
             modifier = Modifier.padding(32.dp),
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(Spacing.xxl),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
@@ -678,15 +676,15 @@ private fun SignInOverlay(onSignInClick: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(40.dp),
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
                 Text("ついでにスポット", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
                 Text(
                     "Googleアカウントでログインすると、スポットがあなたのスプレッドシートに保存されます",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
                 Button(onClick = onSignInClick, modifier = Modifier.fillMaxWidth()) {
                     Text("Googleでログイン")
                 }
@@ -707,37 +705,37 @@ private fun RegisterSheet(
     var memo by remember(initialTitle) { mutableStateOf("") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.xxl)) {
             Text("スポット保存", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(Spacing.lg))
+            AppTextField(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("名前") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(Spacing.md))
+            AppTextField(
                 value = memo,
                 onValueChange = { memo = it },
                 label = { Text("ひとことメモ") },
                 modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
                 minLines = 2,
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(Spacing.xl))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onDismiss) { Text("キャンセル") }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.sm))
                 ElevatedButton(
                     onClick = { onSave(title, memo) },
                     enabled = title.isNotBlank(),
                 ) { Text("保存") }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
         }
     }
 }
@@ -756,19 +754,19 @@ private fun EditSpotDialog(
         title = { Text("スポットを編集") },
         text = {
             Column {
-                OutlinedTextField(
+                AppTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("名前") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(Spacing.md))
+                AppTextField(
                     value = memo,
                     onValueChange = { memo = it },
                     label = { Text("ひとことメモ") },
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
                     minLines = 2,
                 )
             }
@@ -795,9 +793,8 @@ private fun SearchResults(
     onPick: (PlaceResult) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth().padding(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+    AppCard(
+        modifier = modifier.fillMaxWidth().padding(Spacing.md),
     ) {
         LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
             items(results) { result ->
@@ -829,17 +826,16 @@ private fun RouteInfoCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.padding(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+    AppCard(
+        modifier = modifier.padding(Spacing.md),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = Spacing.lg, end = 4.dp, top = Spacing.sm, bottom = Spacing.sm),
         ) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(Spacing.md))
                 Text("経路を確認中…")
             } else if (route != null) {
                 Text("徒歩 ${route.durationText}・${route.distanceText}")
