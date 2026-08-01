@@ -1,33 +1,11 @@
 package com.cloud42labo.serendipityspot.ui.theme
 
 import androidx.compose.material3.Typography
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 
-val AppTypography = Typography(
-    titleLarge = TextStyle(
-        fontSize = 22.sp,
-        fontWeight = FontWeight.Bold
-    ),
-    titleMedium = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.SemiBold
-    ),
-    titleSmall = TextStyle(
-        fontSize = 14.sp,
-        fontWeight = FontWeight.SemiBold
-    ),
-    headlineSmall = TextStyle(
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold
-    ),
-    bodyMedium = TextStyle(
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Normal
-    ),
-    bodySmall = TextStyle(
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Normal
-    )
-)
+/**
+ * M3のデフォルト値をそのまま使う。既存画面の見た目を変えないことが目的で、
+ * 将来フォントを変更する際にこの1箇所を書き換えれば済むようにするための明示化。
+ * fontWeight等を独自に指定すると、行高・字間を含めMaterial3のデフォルトから
+ * ずれて既存レイアウトの折り返しが変わりうるため、値を上書きしない。
+ */
+val AppTypography = Typography()
