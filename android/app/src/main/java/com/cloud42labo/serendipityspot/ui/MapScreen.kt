@@ -46,7 +46,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -76,6 +75,8 @@ import com.cloud42labo.serendipityspot.BuildConfig
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.PlaceResult
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.ui.components.AppCard
+import com.cloud42labo.serendipityspot.ui.components.AppTextField
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.BitmapDescriptor
@@ -215,11 +216,10 @@ fun MapScreen(
                             onSearch(query, center.latitude, center.longitude)
                             keyboardController?.hide()
                         }
-                        OutlinedTextField(
+                        AppTextField(
                             value = query,
                             onValueChange = { query = it },
                             placeholder = { Text("住所・駅名・施設名") },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { runSearch() }),
@@ -665,8 +665,9 @@ private fun DiagnosticsBlock(
 private fun SignInOverlay(onSignInClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Card(
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
             modifier = Modifier.padding(32.dp),
+            shape = MaterialTheme.shapes.medium,
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -710,19 +711,19 @@ private fun RegisterSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Text("スポット保存", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
+            AppTextField(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("名前") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            AppTextField(
                 value = memo,
                 onValueChange = { memo = it },
                 label = { Text("ひとことメモ") },
                 modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
                 minLines = 2,
             )
             Spacer(modifier = Modifier.height(20.dp))
@@ -756,19 +757,19 @@ private fun EditSpotDialog(
         title = { Text("スポットを編集") },
         text = {
             Column {
-                OutlinedTextField(
+                AppTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("名前") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
+                AppTextField(
                     value = memo,
                     onValueChange = { memo = it },
                     label = { Text("ひとことメモ") },
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
                     minLines = 2,
                 )
             }
@@ -798,6 +799,7 @@ private fun SearchResults(
     Card(
         modifier = modifier.fillMaxWidth().padding(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = MaterialTheme.shapes.medium,
     ) {
         LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
             items(results) { result ->
@@ -832,6 +834,7 @@ private fun RouteInfoCard(
     Card(
         modifier = modifier.padding(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = MaterialTheme.shapes.medium,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

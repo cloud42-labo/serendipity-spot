@@ -10,6 +10,7 @@ private val LightColors = lightColorScheme(
     primaryContainer = Indigo50,
     background = AppBackground,
     surface = androidx.compose.ui.graphics.Color.White,
+    surfaceVariant = Slate50,
     onSurface = Slate900,
     onSurfaceVariant = Slate500,
 )
@@ -18,6 +19,8 @@ private val LightColors = lightColorScheme(
 fun SerendipitySpotTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LightColors,
+        shapes = AppShapes,
+        typography = AppTypography,
         content = content,
     )
 }
