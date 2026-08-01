@@ -138,6 +138,7 @@ fun MapScreen(
     onClearSearch: () -> Unit,
     onFocusConsumed: () -> Unit,
     onClearRoute: () -> Unit,
+    onRequestRoute: (spotId: String) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -158,6 +159,11 @@ fun MapScreen(
     var resultListVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var deletingSpot by remember { mutableStateOf<Spot?>(null) }
+    // タップまたは通知で選ばれている登録済みスポットのID。地図下部のカードに情報と
+    // 主要アクション（経路・ストリートビュー・編集・削除）をまとめて出す。
+    // Spotそのものではなくidで持ち、編集直後もuiState.spotsから最新の内容を引く。
+    var selectedSpotId by remember { mutableStateOf<String?>(null) }
+    val selectedSpot = selectedSpotId?.let { id -> uiState.spots.firstOrNull { it.id == id } }
     // 初回だけ現在地へ寄せる。以後はユーザーの操作を邪魔しない。
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
     // 「タップしたのに何も起きない」を端末上で切り分けるための記録。
@@ -181,6 +187,9 @@ fun MapScreen(
         val target = uiState.spots.firstOrNull { it.id == uiState.focusSpotId } ?: return@LaunchedEffect
         cameraPositionState.position =
             CameraPosition.fromLatLngZoom(LatLng(target.lat, target.lng), SPOT_ZOOM)
+        // 通知タップも「地図上でスポットを選んだ」のと同じ扱いにし、
+        // 同じ情報・アクションカードを出す。
+        selectedSpotId = target.id
         onFocusConsumed()
     }
 
@@ -196,10 +205,14 @@ fun MapScreen(
 
     // 登録済みは濃く、検索で出ただけの候補は薄く。
     // 「まだ立っていない旗」をタップすると登録に進む、という見え方にする。
+    // 選択中は同じ色のまま一回り大きくして、他の登録済みと見分けられるようにする。
     val plantedColor = MaterialTheme.colorScheme.primary
     val unplantedColor = MaterialTheme.colorScheme.outline
     val plantedFlag = remember(plantedColor) { flagDescriptor(context, plantedColor.toArgb()) }
     val unplantedFlag = remember(unplantedColor) { flagDescriptor(context, unplantedColor.toArgb()) }
+    val selectedFlag = remember(plantedColor) {
+        flagDescriptor(context, plantedColor.toArgb(), heightDp = 56)
+    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -267,6 +280,8 @@ fun MapScreen(
                 onSpotClick = { spot ->
                     cameraPositionState.position =
                         CameraPosition.fromLatLngZoom(LatLng(spot.lat, spot.lng), SPOT_ZOOM)
+                    if (selectedSpotId != spot.id) onClearRoute()
+                    selectedSpotId = spot.id
                     scope.launch { scaffoldState.bottomSheetState.partialExpand() }
                 },
             )
@@ -288,6 +303,8 @@ fun MapScreen(
                     if (signedIn) {
                         pendingTitle = ""
                         pendingLatLng = latLng
+                        selectedSpotId = null
+                        onClearRoute()
                     }
                 },
             ) {
@@ -301,14 +318,16 @@ fun MapScreen(
                         state = markerState,
                         title = spot.title,
                         snippet = spot.memo,
-                        icon = plantedFlag,
+                        icon = if (spot.id == selectedSpotId) selectedFlag else plantedFlag,
                         anchor = FLAG_ANCHOR,
-                        onClick = { marker ->
+                        onClick = {
                             // true を返して既定動作を止める。既定では吹き出しを出すのに
                             // 加えて「そのマーカーが中心に来るようカメラを動かす」ため、
-                            // 地図が動いて次のタップ位置がずれる。
+                            // 地図が動いて次のタップ位置がずれる。代わりに地図下部のカードで
+                            // 情報とアクションをまとめて出す。
                             lastMapEvent = "旗タップ: ${spot.title}"
-                            marker.showInfoWindow()
+                            if (selectedSpotId != spot.id) onClearRoute()
+                            selectedSpotId = spot.id
                             true
                         },
                     )
@@ -333,6 +352,8 @@ fun MapScreen(
                                 lastMapEvent = "候補タップ: ${result.name}"
                                 pendingTitle = result.name
                                 pendingLatLng = LatLng(result.lat, result.lng)
+                                selectedSpotId = null
+                                onClearRoute()
                                 true
                             },
                         )
@@ -352,11 +373,25 @@ fun MapScreen(
                 SignInOverlay(onSignInClick = onSignInClick)
             }
 
-            if (uiState.isLoadingRoute || uiState.routeToSpot != null) {
-                RouteInfoCard(
+            selectedSpot?.let { spot ->
+                SelectedSpotCard(
+                    spot = spot,
                     route = uiState.routeToSpot,
-                    isLoading = uiState.isLoadingRoute,
-                    onClose = onClearRoute,
+                    isLoadingRoute = uiState.isLoadingRoute,
+                    onRequestRoute = { onRequestRoute(spot.id) },
+                    onStreetView = { openStreetView(context, spot.lat, spot.lng) },
+                    onEdit = {
+                        editingSpot = spot
+                        selectedSpotId = null
+                    },
+                    onDelete = {
+                        deletingSpot = spot
+                        selectedSpotId = null
+                    },
+                    onClose = {
+                        selectedSpotId = null
+                        onClearRoute()
+                    },
                     // 右下の現在地FAB（56dp + 余白16dp）より上に置いて重ならないようにする。
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp),
                 )
@@ -401,6 +436,8 @@ fun MapScreen(
                             lastMapEvent = "＋ボタン: %.5f, %.5f".format(center.latitude, center.longitude)
                             pendingTitle = ""
                             pendingLatLng = center
+                            selectedSpotId = null
+                            onClearRoute()
                         },
                     ) {
                         Icon(
@@ -819,28 +856,79 @@ private fun SearchResults(
     }
 }
 
+/**
+ * 地図上でタップ、または通知から選ばれた登録済みスポットの情報と主要アクションを
+ * まとめて出す。一覧シートを開かなくても、その場で経路確認・ストリートビュー・
+ * 編集・削除に進める（STORY-03: 選択地点の情報と主要アクションを地図上カードで示す）。
+ */
 @Composable
-private fun RouteInfoCard(
+private fun SelectedSpotCard(
+    spot: Spot,
     route: RouteInfo?,
-    isLoading: Boolean,
+    isLoadingRoute: Boolean,
+    onRequestRoute: () -> Unit,
+    onStreetView: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AppCard(
-        modifier = modifier.padding(Spacing.md),
+        modifier = modifier.fillMaxWidth().padding(Spacing.md),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = Spacing.lg, end = 4.dp, top = Spacing.sm, bottom = Spacing.sm),
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(Spacing.md))
-                Text("経路を確認中…")
-            } else if (route != null) {
-                Text("徒歩 ${route.durationText}・${route.distanceText}")
+        Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(spot.title, style = MaterialTheme.typography.titleMedium)
+                    if (spot.memo.isNotBlank()) {
+                        Text(
+                            spot.memo,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Filled.Close, contentDescription = "経路を閉じる")
+                    Icon(Icons.Filled.Close, contentDescription = "選択を閉じる")
+                }
+            }
+            when {
+                isLoadingRoute -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Text("経路を確認中…", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                route != null -> {
+                    Text(
+                        "徒歩 ${route.durationText}・${route.distanceText}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(Spacing.xs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (route == null && !isLoadingRoute) {
+                    TextButton(onClick = onRequestRoute) { Text("経路") }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onStreetView) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "${spot.title} をストリートビューで見る",
+                    )
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(imageVector = Icons.Filled.Edit, contentDescription = "${spot.title} を編集")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "${spot.title} を削除",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }

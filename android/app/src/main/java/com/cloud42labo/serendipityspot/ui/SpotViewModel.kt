@@ -176,6 +176,11 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(routeToSpot = null) }
     }
 
+    /** 地図上でスポットを選んだときに呼ばれる。focusSpotとは違い、カメラは動かさない。 */
+    fun requestRoute(spotId: String) {
+        fetchRouteToSpot(spotId)
+    }
+
     private fun fetchRouteToSpot(spotId: String) {
         val spot = _uiState.value.spots.firstOrNull { it.id == spotId } ?: return
         viewModelScope.launch {

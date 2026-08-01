@@ -113,6 +113,7 @@ class MainActivity : ComponentActivity() {
                             onClearSearch = viewModel::clearSearchResults,
                             onFocusConsumed = viewModel::consumeFocusRequest,
                             onClearRoute = viewModel::clearRoute,
+                            onRequestRoute = viewModel::requestRoute,
                         )
 
                         if (uiState.user != null && hasForegroundLocation && !hasBackgroundLocation) {
