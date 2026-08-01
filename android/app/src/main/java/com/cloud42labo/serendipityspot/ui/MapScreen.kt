@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
@@ -162,7 +163,10 @@ fun MapScreen(
     // タップまたは通知で選ばれている登録済みスポットのID。地図下部のカードに情報と
     // 主要アクション（経路・ストリートビュー・編集・削除）をまとめて出す。
     // Spotそのものではなくidで持ち、編集直後もuiState.spotsから最新の内容を引く。
-    var selectedSpotId by remember { mutableStateOf<String?>(null) }
+    // 画面回転などでの再生成後も選択・カードが残るようrememberSaveableで持つ
+    // （経路はViewModel側のuiStateに残り続けるため、ここが消えると閉じ手段のない
+    // 経路表示だけが残ってしまう）。
+    var selectedSpotId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSpot = selectedSpotId?.let { id -> uiState.spots.firstOrNull { it.id == id } }
     // 初回だけ現在地へ寄せる。以後はユーザーの操作を邪魔しない。
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
@@ -879,12 +883,22 @@ private fun SelectedSpotCard(
         Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(spot.title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        spot.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     if (spot.memo.isNotBlank()) {
+                        // メモは複数行・無制限長で保存されうる。上限を付けないと
+                        // 長文や大きいフォント設定で下のボタン列が画面外へ押し出される
+                        // （Codexレビュー指摘）。
                         Text(
                             spot.memo,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }

@@ -21,6 +21,7 @@ import com.cloud42labo.serendipityspot.data.Spot
 import com.cloud42labo.serendipityspot.location.GeofenceHelper
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -166,6 +167,11 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(focusSpotId = null) }
     }
 
+    // スポットAの取得中にBへ選び直すと、Aの結果が後から届いてBのカードに
+    // 誤表示されうる（Codexレビュー指摘）。新しい取得を始める前に必ず前回分を
+    // キャンセルし、常に最新の1件だけが uiState に反映されるようにする。
+    private var routeJob: Job? = null
+
     /** 通知タップ時にだけ呼ばれる。フォーカスと同時に現在地からの徒歩ルートも取りに行く。 */
     fun focusSpot(spotId: String) {
         _uiState.update { it.copy(focusSpotId = spotId) }
@@ -173,7 +179,8 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearRoute() {
-        _uiState.update { it.copy(routeToSpot = null) }
+        routeJob?.cancel()
+        _uiState.update { it.copy(routeToSpot = null, isLoadingRoute = false) }
     }
 
     /** 地図上でスポットを選んだときに呼ばれる。focusSpotとは違い、カメラは動かさない。 */
@@ -183,7 +190,8 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun fetchRouteToSpot(spotId: String) {
         val spot = _uiState.value.spots.firstOrNull { it.id == spotId } ?: return
-        viewModelScope.launch {
+        routeJob?.cancel()
+        routeJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRoute = true) }
             val client = LocationServices.getFusedLocationProviderClient(getApplication())
             val location = runCatching { client.lastLocation.await() }.getOrNull()
