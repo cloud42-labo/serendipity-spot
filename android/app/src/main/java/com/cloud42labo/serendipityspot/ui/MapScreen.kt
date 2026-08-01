@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -665,10 +663,8 @@ private fun DiagnosticsBlock(
 @Composable
 private fun SignInOverlay(onSignInClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Card(
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        AppCard(
             modifier = Modifier.padding(32.dp),
-            shape = MaterialTheme.shapes.medium,
         ) {
             Column(
                 modifier = Modifier.padding(Spacing.xxl),
@@ -797,10 +793,8 @@ private fun SearchResults(
     onPick: (PlaceResult) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    AppCard(
         modifier = modifier.fillMaxWidth().padding(Spacing.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = MaterialTheme.shapes.medium,
     ) {
         LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
             items(results) { result ->
@@ -832,10 +826,8 @@ private fun RouteInfoCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    AppCard(
         modifier = modifier.padding(Spacing.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = MaterialTheme.shapes.medium,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
