@@ -72,26 +72,14 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-/** 現在地が取れるまでの暫定表示（渋谷）。取れ次第そちらへ移す。 */
 private val FALLBACK_CENTER = LatLng(35.6581, 139.7017)
 private const val SPOT_ZOOM = 17f
 private const val CURRENT_LOCATION_ZOOM = 16f
-
-/**
- * `ic_flag_pin.xml` の viewport(24x24) のうち、実際に絵がある範囲。
- * 竿 x5.2..7.0 / y2.5..21.5、旗 x7.0..18.4 / y3.2..12.0 の外接矩形。
- * ここを変えたら [FLAG_ANCHOR] も計算し直すこと。
- */
 private const val FLAG_VIEWPORT = 24f
 private const val FLAG_INK_LEFT = 5.2f
 private const val FLAG_INK_TOP = 2.5f
 private const val FLAG_INK_RIGHT = 18.4f
 private const val FLAG_INK_BOTTOM = 21.5f
-
-/**
- * 竿の根元が地点を指すように合わせる。切り出したビットマップ内での、
- * 竿の中心x = (6.1-5.2)/13.2 ≒ 0.068、竿の下端y = 1.0。
- */
 private val FLAG_ANCHOR = Offset(0.068f, 1.0f)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,32 +106,20 @@ fun MapScreen(
     val scaffoldState = rememberBottomSheetScaffoldState()
     val snackbarHostState = remember { SnackbarHostState() }
     val keyboardController = LocalSoftwareKeyboardController.current
-
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(FALLBACK_CENTER, CURRENT_LOCATION_ZOOM)
     }
 
     var pendingLatLng by remember { mutableStateOf<LatLng?>(null) }
-    // 検索から来た場合は候補の名前を初期値にする。地図タップなら空。
     var pendingTitle by remember { mutableStateOf("") }
     var editingSpot by remember { mutableStateOf<Spot?>(null) }
     var searchMode by remember { mutableStateOf(false) }
-    // 候補の一覧を出しているか。1つ選んだら閉じるが、旗は地図に残す。
     var resultListVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var deletingSpot by remember { mutableStateOf<Spot?>(null) }
-    // タップまたは通知で選ばれている登録済みスポットのID。地図下部のカードに情報と
-    // 主要アクション（経路・ストリートビュー・編集・削除）をまとめて出す。
-    // Spotそのものではなくidで持ち、編集直後もuiState.spotsから最新の内容を引く。
-    // 画面回転などでの再生成後も選択・カードが残るようrememberSaveableで持つ
-    // （経路はViewModel側のuiStateに残り続けるため、ここが消えると閉じ手段のない
-    // 経路表示だけが残ってしまう）。
     var selectedSpotId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSpot = selectedSpotId?.let { id -> uiState.spots.firstOrNull { it.id == id } }
-    // 初回だけ現在地へ寄せる。以後はユーザーの操作を邪魔しない。
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
-    // 「タップしたのに何も起きない」を端末上で切り分けるための記録。
-    // 地図に届いたのか、旗に吸われたのかが診断欄に出る。通知の診断と同じ考え方。
     var lastMapEvent by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(hasLocationPermission) {
@@ -163,8 +139,6 @@ fun MapScreen(
         val target = uiState.spots.firstOrNull { it.id == uiState.focusSpotId } ?: return@LaunchedEffect
         cameraPositionState.position =
             CameraPosition.fromLatLngZoom(LatLng(target.lat, target.lng), SPOT_ZOOM)
-        // 通知タップも「地図上でスポットを選んだ」のと同じ扱いにし、
-        // 同じ情報・アクションカードを出す。
         selectedSpotId = target.id
         onFocusConsumed()
     }
@@ -177,11 +151,15 @@ fun MapScreen(
         uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    val signedIn = uiState.user != null
+    LaunchedEffect(selectedSpotId, selectedSpot) {
+        if (selectedSpotId != null && selectedSpot == null) {
+            selectedSpotId = null
+            onClearRoute()
+        }
+        scaffoldState.bottomSheetState.partialExpand()
+    }
 
-    // 登録済みは濃く、検索で出ただけの候補は薄く。
-    // 「まだ立っていない旗」をタップすると登録に進む、という見え方にする。
-    // 選択中は同じ色のまま一回り大きくして、他の登録済みと見分けられるようにする。
+    val signedIn = uiState.user != null
     val plantedColor = MaterialTheme.colorScheme.primary
     val unplantedColor = MaterialTheme.colorScheme.outline
     val plantedFlag = remember(plantedColor) { flagDescriptor(context, plantedColor.toArgb()) }
@@ -193,12 +171,11 @@ fun MapScreen(
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        sheetPeekHeight = if (signedIn) 112.dp else 0.dp,
+        sheetPeekHeight = if (signedIn && selectedSpot == null) 112.dp else 0.dp,
         topBar = {
             TopAppBar(
                 title = {
                     if (searchMode) {
-                        // 虫めがねを押しても、キーボードのEnter（検索キー）を押しても同じ。
                         val runSearch: () -> Unit = {
                             val center = cameraPositionState.position.target
                             onSearch(query, center.latitude, center.longitude)
@@ -235,9 +212,7 @@ fun MapScreen(
                         IconButton(onClick = { searchMode = true }) {
                             Icon(Icons.Filled.Search, contentDescription = "場所を検索")
                         }
-                        if (signedIn) {
-                            TextButton(onClick = onSignOutClick) { Text("ログアウト") }
-                        }
+                        if (signedIn) TextButton(onClick = onSignOutClick) { Text("ログアウト") }
                     }
                 },
             )
@@ -268,12 +243,7 @@ fun MapScreen(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 properties = MapProperties(isMyLocationEnabled = hasLocationPermission && signedIn),
-                // 標準の現在地ボタンは地図の右上に固定され動かせないため使わない。
-                // 代わりに同じ働きの FAB を右下（親指の届く位置）に置く。
-                uiSettings = MapUiSettings(
-                    zoomControlsEnabled = false,
-                    myLocationButtonEnabled = false,
-                ),
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false),
                 onMapClick = { latLng ->
                     lastMapEvent = "地図タップ: %.5f, %.5f".format(latLng.latitude, latLng.longitude)
                     if (signedIn) {
@@ -285,8 +255,6 @@ fun MapScreen(
                 },
             ) {
                 uiState.spots.forEach { spot ->
-                    // MarkerState をその場で作ると再コンポーズのたびに作り直され、
-                    // 目印の再生成でタップを取りこぼすことがある。位置が変わるまで使い回す。
                     val markerState = remember(spot.id, spot.lat, spot.lng) {
                         MarkerState(LatLng(spot.lat, spot.lng))
                     }
@@ -297,10 +265,6 @@ fun MapScreen(
                         icon = if (spot.id == selectedSpotId) selectedFlag else plantedFlag,
                         anchor = FLAG_ANCHOR,
                         onClick = {
-                            // true を返して既定動作を止める。既定では吹き出しを出すのに
-                            // 加えて「そのマーカーが中心に来るようカメラを動かす」ため、
-                            // 地図が動いて次のタップ位置がずれる。代わりに地図下部のカードで
-                            // 情報とアクションをまとめて出す。
                             lastMapEvent = "旗タップ: ${spot.title}"
                             if (selectedSpotId != spot.id) onClearRoute()
                             selectedSpotId = spot.id
@@ -309,8 +273,6 @@ fun MapScreen(
                     )
                 }
 
-                // 検索で当たった場所。まだ立っていない旗として置く。
-                // タップすると登録に進み、保存されたら立った旗に変わる。
                 if (signedIn) {
                     uiState.searchResults.forEach { result ->
                         val markerState = remember(result.lat, result.lng, result.name) {
@@ -323,8 +285,6 @@ fun MapScreen(
                             icon = unplantedFlag,
                             anchor = FLAG_ANCHOR,
                             onClick = {
-                                // 薄い旗をタップしたら、そのまま登録画面へ進む。
-                                // true を返して既定の吹き出し表示を抑える。
                                 lastMapEvent = "候補タップ: ${result.name}"
                                 pendingTitle = result.name
                                 pendingLatLng = LatLng(result.lat, result.lng)
@@ -337,17 +297,11 @@ fun MapScreen(
                 }
 
                 uiState.routeToSpot?.let { route ->
-                    Polyline(
-                        points = route.points,
-                        color = plantedColor,
-                        width = 10f,
-                    )
+                    Polyline(points = route.points, color = plantedColor, width = 10f)
                 }
             }
 
-            if (!signedIn) {
-                SignInOverlay(onSignInClick = onSignInClick)
-            }
+            if (!signedIn) SignInOverlay(onSignInClick = onSignInClick)
 
             selectedSpot?.let { spot ->
                 SelectedSpotCard(
@@ -356,19 +310,9 @@ fun MapScreen(
                     isLoadingRoute = uiState.isLoadingRoute,
                     onRequestRoute = { onRequestRoute(spot.id) },
                     onStreetView = { openStreetView(context, spot.lat, spot.lng) },
-                    onEdit = {
-                        editingSpot = spot
-                        selectedSpotId = null
-                    },
-                    onDelete = {
-                        deletingSpot = spot
-                        selectedSpotId = null
-                    },
-                    onClose = {
-                        selectedSpotId = null
-                        onClearRoute()
-                    },
-                    // 右下の現在地FAB（56dp + 余白16dp）より上に置いて重ならないようにする。
+                    onEdit = { editingSpot = spot; selectedSpotId = null },
+                    onDelete = { deletingSpot = spot; selectedSpotId = null },
+                    onClose = { selectedSpotId = null; onClearRoute() },
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp),
                 )
             }
@@ -381,15 +325,12 @@ fun MapScreen(
                             CameraPosition.fromLatLngZoom(LatLng(result.lat, result.lng), SPOT_ZOOM)
                         searchMode = false
                         query = ""
-                        // 一覧は閉じるが、候補は地図上に「まだ立っていない旗」として残す。
-                        // 登録するかは旗をタップして決める。
                         resultListVisible = false
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
 
-            // 地図の中心の照準。「＋」で登録したときにどこへ立つのかを示す。
             if (signedIn) {
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -397,15 +338,10 @@ fun MapScreen(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center).size(20.dp),
                 )
-            }
-
-            if (signedIn) {
                 Column(
                     horizontalAlignment = Alignment.End,
                     modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.lg),
                 ) {
-                    // 地図タップに頼らない確実な入口。Maps SDK のタップ経路に
-                    // 依存しないので、「地図タップが効かない」ときの切り分けにも使える。
                     FloatingActionButton(
                         onClick = {
                             val center = cameraPositionState.position.target
@@ -416,12 +352,8 @@ fun MapScreen(
                             onClearRoute()
                         },
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "地図の中心にスポットを登録",
-                        )
+                        Icon(Icons.Filled.Add, contentDescription = "地図の中心にスポットを登録")
                     }
-
                     if (hasLocationPermission) {
                         Spacer(modifier = Modifier.height(Spacing.md))
                         FloatingActionButton(
@@ -440,18 +372,13 @@ fun MapScreen(
                                 }
                             },
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocationOn,
-                                contentDescription = "現在地へ移動",
-                            )
+                            Icon(Icons.Filled.LocationOn, contentDescription = "現在地へ移動")
                         }
                     }
                 }
             }
 
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+            if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
     }
 
@@ -459,10 +386,7 @@ fun MapScreen(
         EditSpotDialog(
             spot = spot,
             onDismiss = { editingSpot = null },
-            onSave = { title, memo ->
-                onEditSpot(spot, title, memo)
-                editingSpot = null
-            },
+            onSave = { title, memo -> onEditSpot(spot, title, memo); editingSpot = null },
         )
     }
 
@@ -470,10 +394,7 @@ fun MapScreen(
         DeleteSpotDialog(
             spot = spot,
             onDismiss = { deletingSpot = null },
-            onConfirm = {
-                onDeleteSpot(spot)
-                deletingSpot = null
-            },
+            onConfirm = { onDeleteSpot(spot); deletingSpot = null },
         )
     }
 
@@ -484,66 +405,41 @@ fun MapScreen(
             onSave = { title, memo ->
                 onSaveSpot(latLng.latitude, latLng.longitude, title, memo)
                 pendingLatLng = null
-                // 立った旗に置き換わるので、候補の旗は片付ける
                 onClearSearch()
             },
         )
     }
 }
 
-/**
- * 指定地点のストリートビューを開く。
- *
- * アプリ内に埋め込む手もあるが、Googleマップ本体の方が表示が速く操作にも慣れがある。
- * Googleマップが無い端末のためにブラウザへ落とす。
- */
 private fun openStreetView(context: Context, lat: Double, lng: Double) {
     val inMaps = Intent(Intent.ACTION_VIEW, Uri.parse("google.streetview:cbll=$lat,$lng"))
         .setPackage("com.google.android.apps.maps")
     if (runCatching { context.startActivity(inMaps) }.isSuccess) return
-
-    val onWeb = Intent(
-        Intent.ACTION_VIEW,
-        Uri.parse("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$lat,$lng"),
-    )
-    runCatching { context.startActivity(onWeb) }
+    runCatching {
+        context.startActivity(
+            Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$lat,$lng"),
+            ),
+        )
+    }
 }
 
-/**
- * 旗の目印を作る。ベクタ画像を色だけ変えて2種類に使い回す。
- *
- * 登録済み（立った旗）と検索候補（まだ立っていない旗）を、形ではなく濃さで区別する。
- * 形を変えると別のものに見えてしまい、「同じ旗がこれから立つ」という関係が伝わらない。
- *
- * **失敗しても null を返す。** 目印の見た目のために起動不能になるのは筋が悪いので、
- * 呼び出し側は null なら既定のマーカーにフォールバックする。
- */
 private fun flagDescriptor(context: Context, tint: Int, heightDp: Int = 44): BitmapDescriptor? =
     runCatching {
-        // BitmapDescriptorFactory は Maps が初期化されるまで使えない。
-        // 地図の生成より先に呼ぶと落ちる（v0.10.0 の起動不能はこれが原因）。
         MapsInitializer.initialize(context)
-
         val drawable = ContextCompat.getDrawable(context, R.drawable.ic_flag_pin)!!.mutate()
         DrawableCompat.setTint(drawable, tint)
-
-        // viewport 全体ではなく「絵のある範囲」だけを切り出してビットマップにする。
-        // 以前は 24x24 の viewport をそのまま 44dp 四方に描いており、面積の
-        // 半分以上が透明なのにマーカーの当たり判定を持っていた。旗の右下あたりの
-        // 「何も無いように見える場所」をタップすると地図ではなく旗に吸われる。
         val inkWidth = FLAG_INK_RIGHT - FLAG_INK_LEFT
         val inkHeight = FLAG_INK_BOTTOM - FLAG_INK_TOP
         val scale = heightDp * context.resources.displayMetrics.density / inkHeight
-
         val width = (inkWidth * scale).toInt().coerceAtLeast(1)
         val height = (inkHeight * scale).toInt().coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-
         val canvas = Canvas(bitmap)
         canvas.translate(-FLAG_INK_LEFT * scale, -FLAG_INK_TOP * scale)
         val viewport = (FLAG_VIEWPORT * scale).toInt()
         drawable.setBounds(0, 0, viewport, viewport)
         drawable.draw(canvas)
-
         BitmapDescriptorFactory.fromBitmap(bitmap)
     }.getOrNull()
