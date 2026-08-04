@@ -100,6 +100,7 @@ fun MapScreen(
     onFocusConsumed: () -> Unit,
     onClearRoute: () -> Unit,
     onRequestRoute: (spotId: String) -> Unit,
+    onRegistrationConfirmationShown: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -149,6 +150,16 @@ fun MapScreen(
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    // 登録直後の確認（STORY-05: 登録完了が分かる）。showSnackbarはSnackbarが消える
+    // まで一時停止するため、消費（state更新）を先に済ませてから表示する。後にすると、
+    // 表示中の回転で同じ値のLaunchedEffectが再実行されて再表示されたり、表示中に
+    // 同名で連続登録した場合にキーが変わらず2回目が出ない（Codexレビュー指摘）。
+    LaunchedEffect(uiState.registeredSpotTitle) {
+        val title = uiState.registeredSpotTitle ?: return@LaunchedEffect
+        onRegistrationConfirmationShown()
+        snackbarHostState.showSnackbar("「$title」を登録しました")
     }
 
     LaunchedEffect(selectedSpotId, selectedSpot) {
