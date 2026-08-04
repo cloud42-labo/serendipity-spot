@@ -44,6 +44,9 @@ data class SpotUiState(
     val isSearching: Boolean = false,
     val routeToSpot: RouteInfo? = null,
     val isLoadingRoute: Boolean = false,
+    // 登録直後の確認表示用。連続で同じ名前を登録しても毎回出るよう、
+    // 表示側が消費したら都度nullへ戻す（focusSpotIdと同じ消費パターン）。
+    val registeredSpotTitle: String? = null,
 )
 
 class SpotViewModel(application: Application) : AndroidViewModel(application) {
@@ -167,6 +170,10 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(focusSpotId = null) }
     }
 
+    fun consumeRegistrationConfirmation() {
+        _uiState.update { it.copy(registeredSpotTitle = null) }
+    }
+
     // スポットAの取得中にBへ選び直すと、Aの結果が後から届いてBのカードに
     // 誤表示されうる（Codexレビュー指摘）。新しい取得を始める前に必ず前回分を
     // キャンセルし、常に最新の1件だけが uiState に反映されるようにする。
@@ -229,6 +236,7 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
                 // 追加直後の Spot は行番号を持たない（編集・削除ができない）。
                 // シートから読み直して確定させる。ジオフェンスとキャッシュもここで揃う。
                 loadSpots()
+                _uiState.update { it.copy(registeredSpotTitle = title) }
             }.onFailure { error -> fail(error, "保存に失敗しました") }
         }
     }

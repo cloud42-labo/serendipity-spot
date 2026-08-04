@@ -19,6 +19,7 @@ object SpotLocalCache {
     private const val KEY_LAST_EVENT = "diag_last_event"
     private const val KEY_NOTIFIED_AT_PREFIX = "notified_at_"
     private const val KEY_NUDGED_AT_PREFIX = "nudged_at_"
+    private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
 
     fun save(context: Context, spots: List<Spot>) {
         prefs(context).edit().putString(KEY_SPOTS, spots.toJson()).apply()
@@ -50,6 +51,14 @@ object SpotLocalCache {
 
     fun markNudged(context: Context, spotId: String, at: Long = System.currentTimeMillis()) {
         prefs(context).edit().putLong(KEY_NUDGED_AT_PREFIX + spotId, at).apply()
+    }
+
+    /** 初回説明（アプリの目的・権限の理由）を見せたら true。端末単位で一度だけ表示する。 */
+    fun hasSeenOnboarding(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONBOARDING_SEEN, false)
+
+    fun markOnboardingSeen(context: Context) {
+        prefs(context).edit().putBoolean(KEY_ONBOARDING_SEEN, true).apply()
     }
 
     // --- 以下は診断用。通知が来ないときに「登録できているか」「イベントが届いているか」を
