@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,6 +21,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
 import com.cloud42labo.serendipityspot.ui.MapScreen
 import com.cloud42labo.serendipityspot.ui.OnboardingIntro
@@ -50,9 +54,12 @@ class MainActivity : ComponentActivity() {
                     var hasForegroundLocation by remember { mutableStateOf(hasForegroundLocationPermission()) }
                     var hasBackgroundLocation by remember { mutableStateOf(hasBackgroundLocationPermission()) }
                     var hasNotificationPermission by remember { mutableStateOf(hasNotificationPermissionGranted()) }
-                    // 権限ダイアログの結果が一度でも返ってきたか。まだ返っていない
-                    // （＝これから聞く／答え待ち）間は「拒否された」復帰導線を出さない。
-                    var permissionsRequested by remember { mutableStateOf(false) }
+                    // 初回説明を終え、権限確認の段階まで来たか。まだ来ていない
+                    // （＝これから聞く）間は「拒否された」復帰導線を出さない。
+                    // 権限ダイアログを実際に出したかどうかではなく「確認済みか」で持つ。
+                    // ダイアログを出さずスキップする分岐（既に許可済み等）でも、この後の
+                    // 実際の権限状態と組み合わせて正しく復帰導線を出し分けられるようにする。
+                    var permissionsChecked by remember { mutableStateOf(false) }
                     // 初回だけ、OSの権限ダイアログより先にアプリの目的と権限理由を説明する
                     // （STORY-05: 初回説明・権限説明）。既読なら即falseでこれまで通りの動作。
                     var showOnboarding by remember {
@@ -71,7 +78,6 @@ class MainActivity : ComponentActivity() {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             hasNotificationPermission = grants[Manifest.permission.POST_NOTIFICATIONS] == true
                         }
-                        permissionsRequested = true
                         if (hasForegroundLocation && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                         }
@@ -86,6 +92,7 @@ class MainActivity : ComponentActivity() {
                     // 初回説明を閉じるまで権限ダイアログを出さない。
                     LaunchedEffect(showOnboarding) {
                         if (showOnboarding) return@LaunchedEffect
+                        permissionsChecked = true
                         val permissions = mutableListOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
                             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -100,32 +107,49 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    Box {
-                        MapScreen(
-                            uiState = uiState,
-                            hasLocationPermission = hasForegroundLocation,
-                            onSignInClick = { viewModel.signIn(this@MainActivity) },
-                            onSignOutClick = viewModel::signOut,
-                            onSaveSpot = viewModel::addSpot,
-                            onEditSpot = viewModel::editSpot,
-                            onDeleteSpot = viewModel::deleteSpot,
-                            onTestNotification = viewModel::sendTestNotification,
-                            onRefreshDiagnostics = viewModel::refreshDiagnostics,
-                            onSearch = viewModel::searchPlaces,
-                            onClearSearch = viewModel::clearSearchResults,
-                            onFocusConsumed = viewModel::consumeFocusRequest,
-                            onClearRoute = viewModel::clearRoute,
-                            onRequestRoute = viewModel::requestRoute,
-                            onRegistrationConfirmationShown = viewModel::consumeRegistrationConfirmation,
-                        )
+                    // 設定画面から戻ってきたときに実際の権限状態を読み直す。権限ランチャーの
+                    // 結果コールバックは「アプリ内から求めた」場合しか通らないため、これが無いと
+                    // 復帰カード経由でOSの設定から許可しても、アプリ内の表示が古いまま残る
+                    // （Codexレビュー指摘）。
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_RESUME) {
+                                hasForegroundLocation = hasForegroundLocationPermission()
+                                hasBackgroundLocation = hasBackgroundLocationPermission()
+                                hasNotificationPermission = hasNotificationPermissionGranted()
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                    }
 
-                        if (showOnboarding) {
-                            OnboardingIntro(onStart = {
-                                SpotLocalCache.markOnboardingSeen(this@MainActivity)
-                                showOnboarding = false
-                            })
-                        } else {
-                            if (permissionsRequested && !hasForegroundLocation) {
+                    if (showOnboarding) {
+                        OnboardingIntro(onStart = {
+                            SpotLocalCache.markOnboardingSeen(this@MainActivity)
+                            showOnboarding = false
+                        })
+                    } else {
+                        Box {
+                            MapScreen(
+                                uiState = uiState,
+                                hasLocationPermission = hasForegroundLocation,
+                                onSignInClick = { viewModel.signIn(this@MainActivity) },
+                                onSignOutClick = viewModel::signOut,
+                                onSaveSpot = viewModel::addSpot,
+                                onEditSpot = viewModel::editSpot,
+                                onDeleteSpot = viewModel::deleteSpot,
+                                onTestNotification = viewModel::sendTestNotification,
+                                onRefreshDiagnostics = viewModel::refreshDiagnostics,
+                                onSearch = viewModel::searchPlaces,
+                                onClearSearch = viewModel::clearSearchResults,
+                                onFocusConsumed = viewModel::consumeFocusRequest,
+                                onClearRoute = viewModel::clearRoute,
+                                onRequestRoute = viewModel::requestRoute,
+                                onRegistrationConfirmationShown = viewModel::consumeRegistrationConfirmation,
+                            )
+
+                            if (permissionsChecked && !hasForegroundLocation) {
                                 PermissionRecoveryHint(
                                     "位置情報の権限がないため、現在地の表示や近づいたときの通知が" +
                                         "使えません。設定から位置情報を許可してください。",
@@ -136,7 +160,7 @@ class MainActivity : ComponentActivity() {
                                         "「常に許可」に変更してください。",
                                 )
                             } else if (
-                                permissionsRequested &&
+                                permissionsChecked &&
                                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                                 !hasNotificationPermission
                             ) {

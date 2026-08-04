@@ -152,13 +152,14 @@ fun MapScreen(
         uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    // 登録直後の確認（STORY-05: 登録完了が分かる）。連続登録でも毎回出るよう
-    // 表示したらすぐ消費する（focusSpotIdと同じ消費パターン）。
+    // 登録直後の確認（STORY-05: 登録完了が分かる）。showSnackbarはSnackbarが消える
+    // まで一時停止するため、消費（state更新）を先に済ませてから表示する。後にすると、
+    // 表示中の回転で同じ値のLaunchedEffectが再実行されて再表示されたり、表示中に
+    // 同名で連続登録した場合にキーが変わらず2回目が出ない（Codexレビュー指摘）。
     LaunchedEffect(uiState.registeredSpotTitle) {
-        uiState.registeredSpotTitle?.let { title ->
-            snackbarHostState.showSnackbar("「$title」を登録しました")
-            onRegistrationConfirmationShown()
-        }
+        val title = uiState.registeredSpotTitle ?: return@LaunchedEffect
+        onRegistrationConfirmationShown()
+        snackbarHostState.showSnackbar("「$title」を登録しました")
     }
 
     LaunchedEffect(selectedSpotId, selectedSpot) {
