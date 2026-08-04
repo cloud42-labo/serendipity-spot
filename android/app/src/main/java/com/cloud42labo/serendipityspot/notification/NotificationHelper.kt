@@ -66,7 +66,10 @@ object NotificationHelper {
         val title = if (isNudge) "まだ近くです: ${spot.title}" else spot.title
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            // OS標準の汎用アイコンではなく、地図の目印と同じ旗アイコンを使う
+            // （STORY-06: 通知だけアプリのブランドと違う見た目になっていた）。
+            // 白一色の透過シルエットなので、ステータスバー用途にそのまま使える。
+            .setSmallIcon(R.drawable.ic_flag_pin)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
