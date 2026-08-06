@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
@@ -81,6 +83,11 @@ private const val FLAG_INK_TOP = 2.5f
 private const val FLAG_INK_RIGHT = 18.4f
 private const val FLAG_INK_BOTTOM = 21.5f
 private val FLAG_ANCHOR = Offset(0.068f, 1.0f)
+
+// FloatingActionButton（56dp）＋Spacing.lgの余白＋カードとの間隔分、右側スペースを
+// 選択中スポットカードから避ける（BUG-06-1: fillMaxWidthのカードがBottomEndのFABと
+// 重なっていた）。
+private val SELECTED_SPOT_CARD_END_INSET = 88.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
@@ -206,7 +213,10 @@ fun MapScreen(
                             },
                         )
                     } else {
-                        Text("ついでにスポット")
+                        // フォントサイズ最大でも、ログアウトボタン等の分だけ
+                        // 幅が足りない場合に文字が崩れず「…」で収まるようにする
+                        // （BUG-06-1）。
+                        Text("ついでにスポット", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 actions = {
@@ -223,7 +233,17 @@ fun MapScreen(
                         IconButton(onClick = { searchMode = true }) {
                             Icon(Icons.Filled.Search, contentDescription = "場所を検索")
                         }
-                        if (signedIn) TextButton(onClick = onSignOutClick) { Text("ログアウト") }
+                        if (signedIn) {
+                            // 標準のTextButtonはcontentPaddingが広く、フォントサイズ
+                            // 最大時に幅が伸びてタイトルを圧迫していた。paddingを
+                            // 詰め、文字は1行固定にして幅の伸びを抑える（BUG-06-1）。
+                            TextButton(
+                                onClick = onSignOutClick,
+                                contentPadding = PaddingValues(horizontal = Spacing.sm),
+                            ) {
+                                Text("ログアウト", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 },
             )
@@ -324,7 +344,9 @@ fun MapScreen(
                     onEdit = { editingSpot = spot; selectedSpotId = null },
                     onDelete = { deletingSpot = spot; selectedSpotId = null },
                     onClose = { selectedSpotId = null; onClearRoute() },
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 88.dp, end = SELECTED_SPOT_CARD_END_INSET),
                 )
             }
 
