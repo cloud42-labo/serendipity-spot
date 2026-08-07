@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,11 +23,15 @@ import com.cloud42labo.serendipityspot.ui.theme.Spacing
 /**
  * 権限を拒否した後の復帰導線。OSは一度拒否された権限を再度ダイアログでは
  * 求め直せないため、アプリ内から設定画面へ橋渡しする（STORY-05: 権限拒否後の復帰）。
+ *
+ * 呼び出し元（[MainActivity]）ではMapScreenのScaffold外側に重ねて表示するため、
+ * Scaffold内蔵のinsets処理を経由しない。[statusBarsPadding]を自前で入れないと、
+ * カード本文がステータスバー（時刻・アイコン行）の裏に潜り込む（BUG-05-2）。
  */
 @Composable
 fun PermissionRecoveryHint(message: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    Box(modifier = modifier.fillMaxWidth().padding(Spacing.md)) {
+    Box(modifier = modifier.fillMaxWidth().statusBarsPadding().padding(Spacing.md)) {
         AppCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 Text(message, style = MaterialTheme.typography.bodyMedium)
