@@ -24,17 +24,22 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
+import com.cloud42labo.serendipityspot.share.GoogleMapsShareResolver
 import com.cloud42labo.serendipityspot.share.ShareIntentReader
 import com.cloud42labo.serendipityspot.ui.MapScreen
 import com.cloud42labo.serendipityspot.ui.OnboardingIntro
 import com.cloud42labo.serendipityspot.ui.SpotViewModel
 import com.cloud42labo.serendipityspot.ui.components.PermissionRecoveryHint
 import com.cloud42labo.serendipityspot.ui.theme.SerendipitySpotTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: SpotViewModel by viewModels()
+    private var shareResolveJob: Job? = null
 
     /** Sheets/Driveスコープの同意画面。ViewModelからの依頼で起動する。 */
     private val consentLauncher = registerForActivityResult(
@@ -205,7 +210,16 @@ class MainActivity : ComponentActivity() {
             // （Codexレビュー指摘）。
             extraText = intent?.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
         ) ?: return
-        viewModel.onSharedText(text)
+
+        // Google Maps は端末・バージョンによって「施設名 + 短縮URL」ではなく
+        // maps.app.goo.gl の短縮URLだけを共有する。短縮URLだけでは既存Parserが場所を
+        // 復元できないため、Google管理ドメイン内のリダイレクトだけバックグラウンドで
+        // 解決してから解析する。連続共有時は古い解決処理をキャンセルする。
+        shareResolveJob?.cancel()
+        shareResolveJob = lifecycleScope.launch {
+            val resolvedText = GoogleMapsShareResolver.resolveIfNeeded(text)
+            viewModel.onSharedText(resolvedText)
+        }
     }
 
     private fun hasForegroundLocationPermission(): Boolean =
