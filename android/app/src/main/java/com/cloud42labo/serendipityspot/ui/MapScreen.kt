@@ -202,8 +202,25 @@ fun MapScreen(
                 pendingTitle = shared.name.orEmpty()
                 pendingLatLng = target // これで既存のRegisterSheetが開く
             }
-            is SharedPlace.SearchTerm -> { /* このタスクでは何もしない。SPOT-02-S02-T03 の担当 */ }
-            SharedPlace.Unparsable -> { /* このタスクでは何もしない。SPOT-02-S02-T03 の担当 */ }
+            is SharedPlace.SearchTerm -> {
+                // 既存の検索モードをそのまま開く。共有専用の検索画面は作らない。
+                searchMode = true
+                query = shared.query
+                selectedSpotId = null
+                onClearRoute()
+                val center = cameraPositionState.position.target
+                onSearch(shared.query, center.latitude, center.longitude)
+            }
+            SharedPlace.Unparsable -> {
+                // 場所として解釈できないので、検索は自動実行せず入力欄を開くだけにとどめる。
+                // 画面状態の更新を showSnackbar より前に済ませることで、suspend中に LaunchedEffect
+                // が再実行されても既に状態が反映された状態になり、ユーザーが検索欄を使える。
+                searchMode = true
+                query = ""
+                selectedSpotId = null
+                onClearRoute()
+                snackbarHostState.showSnackbar("共有された内容から場所を判別できませんでした。検索してみてください")
+            }
         }
     }
 
