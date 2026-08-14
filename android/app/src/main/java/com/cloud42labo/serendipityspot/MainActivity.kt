@@ -205,10 +205,9 @@ class MainActivity : ComponentActivity() {
         val text = ShareIntentReader.sharedTextOf(
             action = intent?.action,
             type = intent?.type,
-            // EXTRA_TEXT は CharSequence であって String とは限らない。getStringExtra だと
-            // 書式付きテキスト（Spanned）を渡してくるアプリからの共有を取りこぼす
-            // （Codexレビュー指摘）。
+            // EXTRA_TEXT / EXTRA_TITLE は CharSequence で渡される場合がある。
             extraText = intent?.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
+            extraTitle = intent?.getCharSequenceExtra(Intent.EXTRA_TITLE)?.toString(),
         ) ?: return
 
         // Google Maps は端末・バージョンによって「施設名 + 短縮URL」ではなく

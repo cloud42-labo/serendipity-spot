@@ -19,8 +19,8 @@ android {
         applicationId = "com.cloud42labo.serendipityspot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "1.2.1"
+        versionCode = 33
+        versionName = "1.2.2"
 
         manifestPlaceholders["mapsApiKey"] =
             (localProperties.getProperty("MAPS_API_KEY") ?: "").ifBlank { "MISSING_MAPS_API_KEY" }
