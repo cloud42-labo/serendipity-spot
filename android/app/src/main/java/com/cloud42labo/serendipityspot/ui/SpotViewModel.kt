@@ -19,6 +19,8 @@ import com.cloud42labo.serendipityspot.data.SpotLocalCache
 import com.cloud42labo.serendipityspot.notification.NotificationHelper
 import com.cloud42labo.serendipityspot.data.Spot
 import com.cloud42labo.serendipityspot.location.GeofenceHelper
+import com.cloud42labo.serendipityspot.share.SharedPlace
+import com.cloud42labo.serendipityspot.share.ShareTextParser
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Job
@@ -47,9 +49,10 @@ data class SpotUiState(
     // 登録直後の確認表示用。連続で同じ名前を登録しても毎回出るよう、
     // 表示側が消費したら都度nullへ戻す（focusSpotIdと同じ消費パターン）。
     val registeredSpotTitle: String? = null,
-    // 共有（ACTION_SEND）で受け取った生テキスト。解析・画面遷移は後段が行う。
-    // 表示側が消費したら null へ戻す（focusSpotId と同じ消費パターン）。
-    val sharedText: String? = null,
+    // 共有（ACTION_SEND）で受け取った内容の解析結果。表示側が消費したら null へ戻す
+    // （focusSpotId と同じ消費パターン）。Unparsable も「解析できなかった」という
+    // 結果として載せる。捨ててしまうと画面側がフォールバックを出せないため。
+    val sharedPlace: SharedPlace? = null,
 )
 
 class SpotViewModel(application: Application) : AndroidViewModel(application) {
@@ -177,14 +180,14 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(registeredSpotTitle = null) }
     }
 
-    /** 共有起動で本文を受け取ったときに呼ばれる。空白のみは無視する。 */
+    /** 共有起動で本文を受け取ったときに呼ばれる。空白のみは無視する。その場で解析する。 */
     fun onSharedText(text: String) {
         if (text.isBlank()) return
-        _uiState.update { it.copy(sharedText = text) }
+        _uiState.update { it.copy(sharedPlace = ShareTextParser.parse(text)) }
     }
 
-    fun consumeSharedText() {
-        _uiState.update { it.copy(sharedText = null) }
+    fun consumeSharedPlace() {
+        _uiState.update { it.copy(sharedPlace = null) }
     }
 
     // スポットAの取得中にBへ選び直すと、Aの結果が後から届いてBのカードに

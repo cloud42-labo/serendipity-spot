@@ -154,6 +154,7 @@ class MainActivity : ComponentActivity() {
                                 onClearRoute = viewModel::clearRoute,
                                 onRequestRoute = viewModel::requestRoute,
                                 onRegistrationConfirmationShown = viewModel::consumeRegistrationConfirmation,
+                                onSharedPlaceConsumed = viewModel::consumeSharedPlace,
                             )
 
                             if (permissionsChecked && !hasForegroundLocation) {

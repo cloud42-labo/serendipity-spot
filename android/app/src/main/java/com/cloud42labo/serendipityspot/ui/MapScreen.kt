@@ -56,6 +56,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.share.SharedPlace
 import com.cloud42labo.serendipityspot.ui.components.AppTextField
 import com.cloud42labo.serendipityspot.ui.theme.Spacing
 import com.google.android.gms.location.LocationServices
@@ -108,6 +109,7 @@ fun MapScreen(
     onClearRoute: () -> Unit,
     onRequestRoute: (spotId: String) -> Unit,
     onRegistrationConfirmationShown: () -> Unit,
+    onSharedPlaceConsumed: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -129,6 +131,9 @@ fun MapScreen(
     val selectedSpot = selectedSpotId?.let { id -> uiState.spots.firstOrNull { it.id == id } }
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
     var lastMapEvent by remember { mutableStateOf<String?>(null) }
+    // 後続の LaunchedEffect（共有取り込み）から参照できるよう、ここへ引き上げている。
+    // 値の意味は変えていない（下の signedIn 使用箇所と同じ）。
+    val signedIn = uiState.user != null
 
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission || initialLocationApplied) return@LaunchedEffect
@@ -177,7 +182,31 @@ fun MapScreen(
         scaffoldState.bottomSheetState.partialExpand()
     }
 
-    val signedIn = uiState.user != null
+    // 共有から起動されたときの取り込み。サインイン前は消費しない（消費すると共有内容が
+    // 失われ、サインイン後に何も起きなくなる）。ログイン後に改めてこの効果が走る。
+    LaunchedEffect(uiState.sharedPlace, signedIn) {
+        val shared = uiState.sharedPlace ?: return@LaunchedEffect
+        if (!signedIn) return@LaunchedEffect
+        // 消費を先に済ませてから分岐する。後回しにすると、画面回転などで同じ値の
+        // LaunchedEffectが再実行され、同じ共有が二重に取り込まれる
+        // （registeredSpotTitleの消費と同じ考え方）。
+        onSharedPlaceConsumed()
+        when (shared) {
+            is SharedPlace.Located -> {
+                val target = LatLng(shared.lat, shared.lng)
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(target, SPOT_ZOOM)
+                selectedSpotId = null
+                onClearRoute()
+                // 名前が取れなかった場合は空文字を渡す。RegisterSheetはtitleが空の間
+                // 保存ボタンをenabled = falseにするため、欠損のまま保存されることはない。
+                pendingTitle = shared.name.orEmpty()
+                pendingLatLng = target // これで既存のRegisterSheetが開く
+            }
+            is SharedPlace.SearchTerm -> { /* このタスクでは何もしない。SPOT-02-S02-T03 の担当 */ }
+            SharedPlace.Unparsable -> { /* このタスクでは何もしない。SPOT-02-S02-T03 の担当 */ }
+        }
+    }
+
     val plantedColor = MaterialTheme.colorScheme.primary
     val unplantedColor = MaterialTheme.colorScheme.outline
     val plantedFlag = remember(plantedColor) { flagDescriptor(context, plantedColor.toArgb()) }
