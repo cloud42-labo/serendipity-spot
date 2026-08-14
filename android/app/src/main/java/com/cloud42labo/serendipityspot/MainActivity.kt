@@ -200,7 +200,10 @@ class MainActivity : ComponentActivity() {
         val text = ShareIntentReader.sharedTextOf(
             action = intent?.action,
             type = intent?.type,
-            extraText = intent?.getStringExtra(Intent.EXTRA_TEXT),
+            // EXTRA_TEXT は CharSequence であって String とは限らない。getStringExtra だと
+            // 書式付きテキスト（Spanned）を渡してくるアプリからの共有を取りこぼす
+            // （Codexレビュー指摘）。
+            extraText = intent?.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
         ) ?: return
         viewModel.onSharedText(text)
     }

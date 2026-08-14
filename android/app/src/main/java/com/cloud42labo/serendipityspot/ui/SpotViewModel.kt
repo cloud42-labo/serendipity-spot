@@ -148,8 +148,12 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 住所・駅名・施設名から候補を引く。サインイン不要。
      * [nearLat]/[nearLng] は今見ている地図の中心。近くを優先して探すために渡す。
+     *
+     * 中心が信用できない場面（共有からのコールド起動直後で、まだ現在地が確定しておらず
+     * 地図がフォールバック座標のまま）では null を渡す。中心±0.5°に絞ったまま探すと、
+     * 遠方から共有された場所が「見つかりませんでした」になるため（Codexレビュー指摘）。
      */
-    fun searchPlaces(query: String, nearLat: Double, nearLng: Double) {
+    fun searchPlaces(query: String, nearLat: Double?, nearLng: Double?) {
         if (query.isBlank()) {
             clearSearchResults()
             return
