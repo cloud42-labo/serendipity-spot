@@ -12,6 +12,7 @@ import com.cloud42labo.serendipityspot.auth.GoogleAuthManager
 import com.cloud42labo.serendipityspot.auth.SignedInUser
 import com.cloud42labo.serendipityspot.data.DirectionsRepository
 import com.cloud42labo.serendipityspot.data.PlaceResult
+import com.cloud42labo.serendipityspot.data.PlaceSearchOutcome
 import com.cloud42labo.serendipityspot.data.PlaceSearcher
 import com.cloud42labo.serendipityspot.data.RouteInfo
 import com.cloud42labo.serendipityspot.data.SheetsRepository
@@ -158,22 +159,37 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
             clearSearchResults()
             return
         }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true) }
-            val results = runCatching { placeSearcher.search(query, nearLat, nearLng) }
-                .getOrDefault(emptyList())
+        // 検索を連打・打ち直しできる導線なので、前回の検索は必ず捨てる。
+        // 残すと古い結果が後から届いて新しい検索結果を上書きしうる（routeJobと同じ理由）。
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            // 開始時に前回のメッセージを消す。同じ語で続けて失敗しても
+            // null → メッセージ と値が動くので、表示側の LaunchedEffect が再実行される。
+            _uiState.update { it.copy(isSearching = true, errorMessage = null) }
+            val outcome = runCatching { placeSearcher.search(query, nearLat, nearLng) }
+                .getOrElse { PlaceSearchOutcome.Failed(it) }
+            val results = (outcome as? PlaceSearchOutcome.Success)?.results.orEmpty()
             _uiState.update {
                 it.copy(
                     isSearching = false,
                     searchResults = results,
-                    errorMessage = if (results.isEmpty()) "見つかりませんでした" else it.errorMessage,
+                    errorMessage = SearchFeedback.messageFor(outcome, query) ?: it.errorMessage,
                 )
             }
         }
     }
 
     fun clearSearchResults() {
+        searchJob?.cancel()
         _uiState.update { it.copy(searchResults = emptyList(), isSearching = false) }
+    }
+
+    /**
+     * 表示済みのメッセージを消す。消さないと同じ文言が続けて出たときに
+     * 状態が変化せず、2回目以降のスナックバーが出ない（BUG-SPOT-03-01）。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     fun consumeFocusRequest() {
@@ -198,6 +214,9 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
     // 誤表示されうる（Codexレビュー指摘）。新しい取得を始める前に必ず前回分を
     // キャンセルし、常に最新の1件だけが uiState に反映されるようにする。
     private var routeJob: Job? = null
+
+    /** 進行中の検索。新しい検索を始めるときに捨てる。 */
+    private var searchJob: Job? = null
 
     /** 通知タップ時にだけ呼ばれる。フォーカスと同時に現在地からの徒歩ルートも取りに行く。 */
     fun focusSpot(spotId: String) {

@@ -110,6 +110,7 @@ fun MapScreen(
     onRequestRoute: (spotId: String) -> Unit,
     onRegistrationConfirmationShown: () -> Unit,
     onSharedPlaceConsumed: () -> Unit,
+    onErrorMessageShown: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -168,8 +169,14 @@ fun MapScreen(
         if (uiState.searchResults.isNotEmpty()) resultListVisible = true
     }
 
+    // 表示前に消費する。消費しないと、同じ文言が続けて発生したときに値が変わらず
+    // このLaunchedEffectが再実行されないため、2回目以降のスナックバーが出ない。
+    // 検索が「押しても何も起きない」ように見える主因だった（BUG-SPOT-03-01）。
+    // 回転中の再表示を防ぐ意味もある（registeredSpotTitleの消費と同じ考え方）。
     LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+        val message = uiState.errorMessage ?: return@LaunchedEffect
+        onErrorMessageShown()
+        snackbarHostState.showSnackbar(message)
     }
 
     // 登録直後の確認（STORY-05: 登録完了が分かる）。showSnackbarはSnackbarが消える
@@ -269,8 +276,23 @@ fun MapScreen(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { runSearch() }),
                             trailingIcon = {
-                                IconButton(onClick = runSearch) {
-                                    Icon(Icons.Filled.Search, contentDescription = "検索する")
+                                // 検索中は、押した場所そのもので進行中だと分かるようにする。
+                                // ジオコーダの応答には数秒かかることがあり、以前はその間も
+                                // 押した直後も画面が無反応に見えていた（BUG-SPOT-03-01）。
+                                if (uiState.isSearching) {
+                                    Box(
+                                        modifier = Modifier.size(48.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
+                                } else {
+                                    IconButton(onClick = runSearch) {
+                                        Icon(Icons.Filled.Search, contentDescription = "検索する")
+                                    }
                                 }
                             },
                         )
