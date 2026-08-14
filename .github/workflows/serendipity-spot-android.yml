@@ -112,6 +112,10 @@ jobs:
             echo "::warning::SERENDIPITY_MAPS_API_KEY が未設定。地図が灰色で表示される。"
           fi
 
+      - name: Run unit tests
+        # 配布物を作る前にユニットテストを通す。ここが落ちたAPKは配らない。
+        run: ./gradlew --no-daemon testDebugUnitTest
+
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug
 

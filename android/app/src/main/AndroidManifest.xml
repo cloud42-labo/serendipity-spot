@@ -34,6 +34,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 共有メニューからの受信は通常起動（MAIN/LAUNCHER）と別のintent-filterに分ける。
+                 同じ要素に混ぜるとMAINにもtext/plainのdataが付き、意図が曖昧になるため。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <receiver

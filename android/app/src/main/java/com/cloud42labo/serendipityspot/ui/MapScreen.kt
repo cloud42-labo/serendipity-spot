@@ -56,6 +56,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.share.SharedPlace
 import com.cloud42labo.serendipityspot.ui.components.AppTextField
 import com.cloud42labo.serendipityspot.ui.theme.Spacing
 import com.google.android.gms.location.LocationServices
@@ -102,12 +103,13 @@ fun MapScreen(
     onDeleteSpot: (spot: Spot) -> Unit,
     onTestNotification: () -> Unit,
     onRefreshDiagnostics: () -> Unit,
-    onSearch: (query: String, nearLat: Double, nearLng: Double) -> Unit,
+    onSearch: (query: String, nearLat: Double?, nearLng: Double?) -> Unit,
     onClearSearch: () -> Unit,
     onFocusConsumed: () -> Unit,
     onClearRoute: () -> Unit,
     onRequestRoute: (spotId: String) -> Unit,
     onRegistrationConfirmationShown: () -> Unit,
+    onSharedPlaceConsumed: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -118,17 +120,27 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(FALLBACK_CENTER, CURRENT_LOCATION_ZOOM)
     }
 
-    var pendingLatLng by remember { mutableStateOf<LatLng?>(null) }
-    var pendingTitle by remember { mutableStateOf("") }
+    // 共有はIntentを一度しか運ばないため、取り込んだ結果を画面回転で失うと復元手段が無い
+    // （元アプリから共有し直すしかない）。共有由来の状態と、それと対になる登録・検索の
+    // UI状態はrememberSaveableで持つ（Codexレビュー指摘。LatLngはParcelable）。
+    var pendingLatLng by rememberSaveable { mutableStateOf<LatLng?>(null) }
+    var pendingTitle by rememberSaveable { mutableStateOf("") }
     var editingSpot by remember { mutableStateOf<Spot?>(null) }
-    var searchMode by remember { mutableStateOf(false) }
-    var resultListVisible by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
+    var searchMode by rememberSaveable { mutableStateOf(false) }
+    var resultListVisible by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
     var deletingSpot by remember { mutableStateOf<Spot?>(null) }
     var selectedSpotId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSpot = selectedSpotId?.let { id -> uiState.spots.firstOrNull { it.id == id } }
     var initialLocationApplied by rememberSaveable { mutableStateOf(false) }
+    // 地図の中心が「実際の現在地」を指しているか。コールド起動直後や位置情報が取れない
+    // 場合、中心はFALLBACK_CENTER（東京）のままで、そこを検索の基準にすると遠方から
+    // 共有された場所を取り逃がす（Codexレビュー指摘）。
+    var cameraCenteredOnRealLocation by rememberSaveable { mutableStateOf(false) }
     var lastMapEvent by remember { mutableStateOf<String?>(null) }
+    // 後続の LaunchedEffect（共有取り込み）から参照できるよう、ここへ引き上げている。
+    // 値の意味は変えていない（下の signedIn 使用箇所と同じ）。
+    val signedIn = uiState.user != null
 
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission || initialLocationApplied) return@LaunchedEffect
@@ -139,6 +151,7 @@ fun MapScreen(
                 LatLng(location.latitude, location.longitude),
                 CURRENT_LOCATION_ZOOM,
             )
+            cameraCenteredOnRealLocation = true
         }
         initialLocationApplied = true
     }
@@ -177,7 +190,56 @@ fun MapScreen(
         scaffoldState.bottomSheetState.partialExpand()
     }
 
-    val signedIn = uiState.user != null
+    // 共有から起動されたときの取り込み。サインイン前は消費しない（消費すると共有内容が
+    // 失われ、サインイン後に何も起きなくなる）。ログイン後に改めてこの効果が走る。
+    LaunchedEffect(uiState.sharedPlace, signedIn) {
+        val shared = uiState.sharedPlace ?: return@LaunchedEffect
+        if (!signedIn) return@LaunchedEffect
+        // 消費を先に済ませてから分岐する。後回しにすると、画面回転などで同じ値の
+        // LaunchedEffectが再実行され、同じ共有が二重に取り込まれる
+        // （registeredSpotTitleの消費と同じ考え方）。
+        onSharedPlaceConsumed()
+        when (shared) {
+            is SharedPlace.Located -> {
+                val target = LatLng(shared.lat, shared.lng)
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(target, SPOT_ZOOM)
+                selectedSpotId = null
+                onClearRoute()
+                // 名前が取れなかった場合は空文字を渡す。RegisterSheetはtitleが空の間
+                // 保存ボタンをenabled = falseにするため、欠損のまま保存されることはない。
+                pendingTitle = shared.name.orEmpty()
+                pendingLatLng = target // これで既存のRegisterSheetが開く
+            }
+            is SharedPlace.SearchTerm -> {
+                // 既存の検索モードをそのまま開く。共有専用の検索画面は作らない。
+                searchMode = true
+                query = shared.query
+                selectedSpotId = null
+                onClearRoute()
+                // 現在地でカメラを合わせられている場合だけ、その近くを優先して探す。
+                // まだ合わせられていない（コールド起動直後・位置情報なし）ときの中心は
+                // 東京のフォールバック座標なので、そこへ絞ると他県から共有された場所が
+                // 見つからなくなる。その場合は範囲を指定せず全国から探す。
+                val center = cameraPositionState.position.target
+                if (cameraCenteredOnRealLocation) {
+                    onSearch(shared.query, center.latitude, center.longitude)
+                } else {
+                    onSearch(shared.query, null, null)
+                }
+            }
+            SharedPlace.Unparsable -> {
+                // 場所として解釈できないので、検索は自動実行せず入力欄を開くだけにとどめる。
+                // 画面状態の更新を showSnackbar より前に済ませることで、suspend中に LaunchedEffect
+                // が再実行されても既に状態が反映された状態になり、ユーザーが検索欄を使える。
+                searchMode = true
+                query = ""
+                selectedSpotId = null
+                onClearRoute()
+                snackbarHostState.showSnackbar("共有された内容から場所を判別できませんでした。検索してみてください")
+            }
+        }
+    }
+
     val plantedColor = MaterialTheme.colorScheme.primary
     val unplantedColor = MaterialTheme.colorScheme.outline
     val plantedFlag = remember(plantedColor) { flagDescriptor(context, plantedColor.toArgb()) }
@@ -399,6 +461,7 @@ fun MapScreen(
                                             LatLng(location.latitude, location.longitude),
                                             CURRENT_LOCATION_ZOOM,
                                         )
+                                        cameraCenteredOnRealLocation = true
                                     } else {
                                         snackbarHostState.showSnackbar("現在地を取得できませんでした")
                                     }
