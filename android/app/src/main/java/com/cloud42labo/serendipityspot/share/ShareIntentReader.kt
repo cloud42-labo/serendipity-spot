@@ -10,11 +10,12 @@ package com.cloud42labo.serendipityspot.share
 object ShareIntentReader {
     const val ACTION_SEND = "android.intent.action.SEND"
 
+    // 「店」「駅」「港」のような短い語はニュース見出しにも頻出するので使わない。
+    // 誤って一般記事を場所検索するより、判定できないものを安全な手動検索へ落とす方を優先する。
     private val PLACE_TITLE_HINTS = listOf(
-        "ショッピングセンター", "ショッピングモール", "モール", "センター", "店", "店舗",
-        "タワー", "公園", "駅", "ホテル", "旅館", "レストラン", "カフェ", "美術館", "博物館",
-        "水族館", "動物園", "神社", "寺", "病院", "クリニック", "学校", "大学", "役所",
-        "ホール", "劇場", "スタジアム", "アリーナ", "空港", "港",
+        "ショッピングセンター", "ショッピングモール", "モール", "店舗情報",
+        "タワー", "公園", "ホテル", "旅館", "レストラン", "カフェ", "美術館", "博物館",
+        "水族館", "動物園", "神社", "病院", "クリニック", "スタジアム", "アリーナ", "空港",
     )
 
     /**
@@ -44,7 +45,7 @@ object ShareIntentReader {
     }
 
     private fun isUrlOnly(text: String): Boolean =
-        text.startsWith("https://") || text.startsWith("http://")
+        Regex("""^https?://\S+$""").matches(text)
 
     private fun looksLikePlaceTitle(title: String): Boolean {
         if (title.isBlank()) return false
