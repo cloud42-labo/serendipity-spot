@@ -47,6 +47,9 @@ data class SpotUiState(
     // 登録直後の確認表示用。連続で同じ名前を登録しても毎回出るよう、
     // 表示側が消費したら都度nullへ戻す（focusSpotIdと同じ消費パターン）。
     val registeredSpotTitle: String? = null,
+    // 共有（ACTION_SEND）で受け取った生テキスト。解析・画面遷移は後段が行う。
+    // 表示側が消費したら null へ戻す（focusSpotId と同じ消費パターン）。
+    val sharedText: String? = null,
 )
 
 class SpotViewModel(application: Application) : AndroidViewModel(application) {
@@ -172,6 +175,16 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
 
     fun consumeRegistrationConfirmation() {
         _uiState.update { it.copy(registeredSpotTitle = null) }
+    }
+
+    /** 共有起動で本文を受け取ったときに呼ばれる。空白のみは無視する。 */
+    fun onSharedText(text: String) {
+        if (text.isBlank()) return
+        _uiState.update { it.copy(sharedText = text) }
+    }
+
+    fun consumeSharedText() {
+        _uiState.update { it.copy(sharedText = null) }
     }
 
     // スポットAの取得中にBへ選び直すと、Aの結果が後から届いてBのカードに

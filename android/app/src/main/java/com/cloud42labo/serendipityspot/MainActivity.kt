@@ -25,6 +25,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
+import com.cloud42labo.serendipityspot.share.ShareIntentReader
 import com.cloud42labo.serendipityspot.ui.MapScreen
 import com.cloud42labo.serendipityspot.ui.OnboardingIntro
 import com.cloud42labo.serendipityspot.ui.SpotViewModel
@@ -46,6 +47,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         handleFocusIntent(intent)
+        // 画面回転などでActivityが再生成されたとき（savedInstanceState != null）は
+        // onCreateにも元のIntentが渡ってくるが、それを毎回処理すると共有内容が
+        // 二重に取り込まれてしまう。初回起動のときだけ共有を処理する。
+        if (savedInstanceState == null) {
+            handleShareIntent(intent)
+        }
 
         setContent {
             SerendipitySpotTheme {
@@ -180,11 +187,21 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleFocusIntent(intent)
+        handleShareIntent(intent)
     }
 
     private fun handleFocusIntent(intent: Intent?) {
         val spotId = intent?.getStringExtra(EXTRA_FOCUS_SPOT_ID) ?: return
         viewModel.focusSpot(spotId)
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        val text = ShareIntentReader.sharedTextOf(
+            action = intent?.action,
+            type = intent?.type,
+            extraText = intent?.getStringExtra(Intent.EXTRA_TEXT),
+        ) ?: return
+        viewModel.onSharedText(text)
     }
 
     private fun hasForegroundLocationPermission(): Boolean =
