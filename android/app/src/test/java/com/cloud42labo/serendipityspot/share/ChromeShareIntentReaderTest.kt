@@ -33,6 +33,18 @@ class ChromeShareIntentReaderTest {
     }
 
     @Test
+    fun `閉店ニュースは店の文字を含んでも施設扱いしない`() {
+        val result = ShareIntentReader.sharedTextOf(
+            action = ShareIntentReader.ACTION_SEND,
+            type = "text/plain",
+            extraText = "https://example.com/news/closed",
+            extraTitle = "駅前の老舗が閉店へ",
+        )
+
+        assertEquals("https://example.com/news/closed", result)
+    }
+
+    @Test
     fun `施設タイトルがあってもURL以外の共有本文は改変しない`() {
         val result = ShareIntentReader.sharedTextOf(
             action = ShareIntentReader.ACTION_SEND,
