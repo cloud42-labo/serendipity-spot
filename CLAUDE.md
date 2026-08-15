@@ -19,10 +19,24 @@
 serendipity-spot/
 ├── android/   # Kotlin + Jetpack Compose によるネイティブAndroidアプリ
 ├── docs/      # GitHub Pages（プライバシーポリシー等）
-└── .claude/agents/   # エージェント編成の定義
+└── .claude/
+    ├── agents/          # エージェント編成の定義
+    └── settings.json    # Claude Code の設定（スマホ通知）
 ```
 
 現時点では `android/` のみ。詳細は [android/README.md](android/README.md)。
+
+`.claude/settings.json` はスマホへのプッシュ通知を有効にしている。JSONにコメントを
+書けないのでここに残す。
+
+| キー | `/config` での表示 | 効果 |
+| :--- | :--- | :--- |
+| `inputNeededNotifEnabled` | Push when actions required | 承認待ち・質問待ちで止まったときにスマホへ通知 |
+| `agentPushNotifEnabled` | Push when Claude decides | 長い作業が終わったときなどにClaudeの判断で通知 |
+
+どちらも既定は `false`。届かないときはスマホ側（Claudeアプリの通知許可、iOSの集中モード、
+Androidのバッテリー最適化）を疑う。詳細:
+[Remote Control / Mobile push notifications](https://code.claude.com/docs/en/remote-control#mobile-push-notifications)。
 
 ## GitHub操作
 
