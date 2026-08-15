@@ -234,11 +234,21 @@ fun MapScreen(
                 // まだ合わせられていない（コールド起動直後・位置情報なし）ときの中心は
                 // 東京のフォールバック座標なので、そこへ絞ると他県から共有された場所が
                 // 見つからなくなる。その場合は範囲を指定せず全国から探す。
-                val center = cameraPositionState.position.target
-                if (cameraCenteredOnRealLocation) {
-                    onSearch(shared.query, center.latitude, center.longitude)
+                if (shared.autoRun) {
+                    val center = cameraPositionState.position.target
+                    if (cameraCenteredOnRealLocation) {
+                        onSearch(shared.query, center.latitude, center.longitude)
+                    } else {
+                        onSearch(shared.query, null, null)
+                    }
                 } else {
-                    onSearch(shared.query, null, null)
+                    // ブラウザ共有のページタイトル等、施設名とは限らないもの。検索語としては
+                    // 引き継ぐが自動実行はしない。空欄で開くと利用者が打ち直す羽目になるため、
+                    // 入れておいて「押せば探せる」状態にする。表示は scope へ逃がす
+                    // （消費でこの効果がキャンセルされるため。上の Unparsable と同じ理由）。
+                    scope.launch {
+                        snackbarHostState.showSnackbar("共有されたページ名を入れました。検索してみてください")
+                    }
                 }
             }
             SharedPlace.Unparsable -> {

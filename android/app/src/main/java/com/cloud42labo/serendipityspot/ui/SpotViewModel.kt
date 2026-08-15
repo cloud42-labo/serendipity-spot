@@ -209,10 +209,20 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(registeredSpotTitle = null) }
     }
 
-    /** 共有起動で本文を受け取ったときに呼ばれる。空白のみは無視する。その場で解析する。 */
-    fun onSharedText(text: String) {
+    /**
+     * 共有起動で本文を受け取ったときに呼ばれる。空白のみは無視する。その場で解析する。
+     *
+     * [autoSearch] が false の場合、場所名らしき語が取れても検索は自動実行せず、
+     * 検索欄へ流し込むだけにとどめる（ブラウザ共有のページタイトルなど、
+     * 施設名とは限らないものを勝手に場所検索へ回さないため）。
+     */
+    fun onSharedText(text: String, autoSearch: Boolean = true) {
         if (text.isBlank()) return
-        _uiState.update { it.copy(sharedPlace = ShareTextParser.parse(text)) }
+        val parsed = when (val place = ShareTextParser.parse(text)) {
+            is SharedPlace.SearchTerm -> place.copy(autoRun = autoSearch)
+            else -> place
+        }
+        _uiState.update { it.copy(sharedPlace = parsed) }
     }
 
     fun consumeSharedPlace() {

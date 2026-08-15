@@ -203,13 +203,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleShareIntent(intent: Intent?) {
-        val text = ShareIntentReader.sharedTextOf(
+        val shared = ShareIntentReader.sharedShareTextOf(
             action = intent?.action,
             type = intent?.type,
             // EXTRA_TEXT / EXTRA_TITLE は CharSequence で渡される場合がある。
             extraText = intent?.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
             extraTitle = intent?.getCharSequenceExtra(Intent.EXTRA_TITLE)?.toString(),
         ) ?: return
+        val text = shared.text
 
         // Google Maps は端末・バージョンによって「施設名 + 短縮URL」ではなく
         // maps.app.goo.gl の短縮URLだけを共有する。短縮URLだけでは既存Parserが場所を
@@ -218,7 +219,7 @@ class MainActivity : ComponentActivity() {
         shareResolveJob?.cancel()
         shareResolveJob = lifecycleScope.launch {
             val resolvedText = GoogleMapsShareResolver.resolveIfNeeded(text)
-            viewModel.onSharedText(resolvedText)
+            viewModel.onSharedText(resolvedText, autoSearch = shared.autoSearch)
         }
     }
 
