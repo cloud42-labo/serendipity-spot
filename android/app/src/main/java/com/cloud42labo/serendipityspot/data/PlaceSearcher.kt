@@ -3,6 +3,7 @@ package com.cloud42labo.serendipityspot.data
 import android.content.Context
 import android.location.Address
 import android.location.Geocoder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -51,6 +52,11 @@ class PlaceSearcher(private val context: Context) {
                 unbounded = { lookup(geocoder, query, null, null) },
             )
             PlaceSearchOutcome.Success(results)
+        } catch (e: CancellationException) {
+            // 打ち直し・クリアで検索を捨てただけ。検索の失敗ではないので握らず投げ直す。
+            // ここで Failed に変えると、捨てたはずの古い検索がエラー表示や
+            // spinner の状態を上書きしてしまう（Codexレビュー指摘）。
+            throw e
         } catch (e: Exception) {
             PlaceSearchOutcome.Failed(e)
         }

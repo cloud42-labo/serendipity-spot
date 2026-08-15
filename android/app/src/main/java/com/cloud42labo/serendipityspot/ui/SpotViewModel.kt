@@ -24,6 +24,7 @@ import com.cloud42labo.serendipityspot.share.SharedPlace
 import com.cloud42labo.serendipityspot.share.ShareTextParser
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -166,8 +167,16 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
             // 開始時に前回のメッセージを消す。同じ語で続けて失敗しても
             // null → メッセージ と値が動くので、表示側の LaunchedEffect が再実行される。
             _uiState.update { it.copy(isSearching = true, errorMessage = null) }
-            val outcome = runCatching { placeSearcher.search(query, nearLat, nearLng) }
-                .getOrElse { PlaceSearchOutcome.Failed(it) }
+            // runCatching は CancellationException まで拾ってしまう。捨てたはずの
+            // 古い検索が Failed として新しい結果を上書きするので、キャンセルは投げ直す
+            // （Codexレビュー指摘）。
+            val outcome = try {
+                placeSearcher.search(query, nearLat, nearLng)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                PlaceSearchOutcome.Failed(e)
+            }
             val results = (outcome as? PlaceSearchOutcome.Success)?.results.orEmpty()
             _uiState.update {
                 it.copy(

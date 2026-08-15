@@ -172,21 +172,28 @@ fun MapScreen(
     // 表示前に消費する。消費しないと、同じ文言が続けて発生したときに値が変わらず
     // このLaunchedEffectが再実行されないため、2回目以降のスナックバーが出ない。
     // 検索が「押しても何も起きない」ように見える主因だった（BUG-SPOT-03-01）。
-    // 回転中の再表示を防ぐ意味もある（registeredSpotTitleの消費と同じ考え方）。
+    //
+    // 表示は scope へ逃がす。消費した瞬間に errorMessage が null になってキーが変わり、
+    // このLaunchedEffectごとキャンセルされるため、ここで直接 showSnackbar すると
+    // 表示を持つcoroutineが打ち切られて結局出ない（Codexレビュー指摘）。
+    // scope はコンポジションの寿命なのでキーの変化では止まらない。
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage ?: return@LaunchedEffect
         onErrorMessageShown()
-        snackbarHostState.showSnackbar(message)
+        scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    // 登録直後の確認（STORY-05: 登録完了が分かる）。showSnackbarはSnackbarが消える
-    // まで一時停止するため、消費（state更新）を先に済ませてから表示する。後にすると、
-    // 表示中の回転で同じ値のLaunchedEffectが再実行されて再表示されたり、表示中に
-    // 同名で連続登録した場合にキーが変わらず2回目が出ない（Codexレビュー指摘）。
+    // 登録直後の確認（STORY-05: 登録完了が分かる）。消費（state更新）を先に済ませる。
+    // 後にすると、表示中の回転で同じ値のLaunchedEffectが再実行されて再表示されたり、
+    // 表示中に同名で連続登録した場合にキーが変わらず2回目が出ない（Codexレビュー指摘）。
+    //
+    // ただし表示自体をこのLaunchedEffectに持たせてはいけない。消費した瞬間にキーが
+    // null へ変わり、この効果ごとキャンセルされて showSnackbar が打ち切られるため。
+    // 表示はコンポジション寿命の scope に移し、キーの変化で消えないようにする。
     LaunchedEffect(uiState.registeredSpotTitle) {
         val title = uiState.registeredSpotTitle ?: return@LaunchedEffect
         onRegistrationConfirmationShown()
-        snackbarHostState.showSnackbar("「$title」を登録しました")
+        scope.launch { snackbarHostState.showSnackbar("「$title」を登録しました") }
     }
 
     LaunchedEffect(selectedSpotId, selectedSpot) {
