@@ -243,13 +243,20 @@ fun MapScreen(
             }
             SharedPlace.Unparsable -> {
                 // 場所として解釈できないので、検索は自動実行せず入力欄を開くだけにとどめる。
-                // 画面状態の更新を showSnackbar より前に済ませることで、suspend中に LaunchedEffect
-                // が再実行されても既に状態が反映された状態になり、ユーザーが検索欄を使える。
                 searchMode = true
                 query = ""
                 selectedSpotId = null
                 onClearRoute()
-                snackbarHostState.showSnackbar("共有された内容から場所を判別できませんでした。検索してみてください")
+                // 表示は scope へ逃がす。この効果は上の onSharedPlaceConsumed() で
+                // sharedPlace が null になった時点でキーが変わりキャンセルされるため、
+                // ここで直接 showSnackbar すると打ち切られて何も出ない。
+                // 結果として「検索欄が空で開くだけで理由が分からない」状態になっていた。
+                // errorMessage / registeredSpotTitle と同じ機序（Codexレビュー指摘の3例目）。
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        "共有された内容から場所を判別できませんでした。検索してみてください",
+                    )
+                }
             }
         }
     }
