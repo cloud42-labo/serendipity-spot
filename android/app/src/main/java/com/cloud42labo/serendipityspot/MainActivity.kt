@@ -160,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                 onRequestRoute = viewModel::requestRoute,
                                 onRegistrationConfirmationShown = viewModel::consumeRegistrationConfirmation,
                                 onSharedPlaceConsumed = viewModel::consumeSharedPlace,
+                                onErrorMessageShown = viewModel::consumeErrorMessage,
                             )
 
                             if (permissionsChecked && !hasForegroundLocation) {
