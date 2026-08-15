@@ -67,6 +67,32 @@ object ShareTextParser {
         return SharedPlace.Unparsable
     }
 
+    /**
+     * [parse] の結果に、共有元（[ShareIntentReader]）が付けた判断を反映して返す。
+     *
+     * [autoSearch] が false のときは自動検索させない（[SharedPlace.SearchTerm.autoRun]）。
+     * さらに [stagedTitle] があればそれを検索語として優先する。[extractNameCandidate] は
+     * URL内の `q=` / `query=` を本文行より先に採るため、`?query=123` のようなURLを
+     * ブラウザから共有すると、合成した本文にタイトルがあっても検索語が "123" になり、
+     * 引き継いだはずのページ名が消える（Codexレビュー指摘）。URL優先そのものは
+     * Google Maps共有では正しいので、パーサ内の順序は変えず、手動ステージ経路だけ
+     * ここで覆す。
+     *
+     * 座標まで確定した共有（[SharedPlace.Located]）と [SharedPlace.Unparsable] は
+     * 従来どおりで、何も上書きしない。
+     */
+    fun parseShared(
+        text: String,
+        autoSearch: Boolean,
+        stagedTitle: String? = null,
+    ): SharedPlace {
+        val place = parse(text)
+        if (place !is SharedPlace.SearchTerm) return place
+        // タイトルが記号だけ等で検索語にならない場合は、解析結果をそのまま使う。
+        val staged = if (autoSearch) null else normalizeSearchTerm(stagedTitle)
+        return place.copy(query = staged ?: place.query, autoRun = autoSearch)
+    }
+
     // ------------------------------------------------------------------
     // (b) URL抽出
     // ------------------------------------------------------------------

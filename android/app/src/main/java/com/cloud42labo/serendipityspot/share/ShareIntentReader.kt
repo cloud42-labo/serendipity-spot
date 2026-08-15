@@ -31,17 +31,44 @@ object ShareIntentReader {
         type: String?,
         extraText: String?,
         extraTitle: String? = null,
-    ): String? {
+    ): String? = sharedShareTextOf(action, type, extraText, extraTitle)?.text
+
+    /**
+     * 共有本文と、それを自動で検索してよいかの判定。
+     *
+     * URLだけの共有でタイトルがある場合、タイトルは**常に**本文へ合成する。
+     * かつては施設名らしいタイトルのときだけ合成し、それ以外はURLだけを残していたが、
+     * それだと検索欄が空で開くだけになり、利用者が結局手で打ち直すことになっていた。
+     * タイトルは引き継いだうえで、自動検索するかどうかだけを [SharedShareText.autoSearch]
+     * で切り分ける。「一般記事のタイトルを勝手に場所検索へ回さない」という元の狙いは
+     * 自動実行しないことで達成されるため、タイトルを捨てる必要はない。
+     */
+    fun sharedShareTextOf(
+        action: String?,
+        type: String?,
+        extraText: String?,
+        extraTitle: String? = null,
+    ): SharedShareText? {
         if (action != ACTION_SEND) return null
         if (type == null || !type.startsWith("text/")) return null
         if (extraText == null || extraText.isBlank()) return null
 
         val text = extraText.trim()
         val title = extraTitle?.trim().orEmpty()
-        if (isUrlOnly(text) && looksLikePlaceTitle(title)) {
-            return "$title\n$text"
+        if (isUrlOnly(text) && title.isNotBlank()) {
+            val autoSearch = looksLikePlaceTitle(title)
+            return SharedShareText(
+                text = "$title\n$text",
+                autoSearch = autoSearch,
+                // 手動ステージ経路に限り、タイトルを別値としても渡す。合成本文だけでは
+                // ShareTextParser がURL内の q= / query= を本文行より先に採用するため、
+                // 例えば https://example.com/search?query=123 を共有すると検索欄に
+                // "123" が入り、引き継いだはずのページ名が消える（Codexレビュー指摘）。
+                // 自動検索する経路は既存の確定挙動なのでここでは触らない。
+                stagedTitle = if (autoSearch) null else title,
+            )
         }
-        return text
+        return SharedShareText(text = text, autoSearch = true)
     }
 
     private fun isUrlOnly(text: String): Boolean =
@@ -52,3 +79,23 @@ object ShareIntentReader {
         return PLACE_TITLE_HINTS.any { hint -> title.contains(hint, ignoreCase = true) }
     }
 }
+
+/**
+ * 共有で受け取った本文と、それを自動検索してよいか。
+ *
+ * [autoSearch] が false の場合は検索欄へ流し込むだけにとどめる。
+ */
+data class SharedShareText(
+    val text: String,
+    val autoSearch: Boolean,
+    /**
+     * 手動ステージ（[autoSearch] が false）のときに、検索欄へ入れる語として
+     * URL由来の候補より優先するページタイトル。それ以外の経路では null。
+     *
+     * 合成本文（"タイトル\nURL"）の中だけでは表現できないため別値で持つ。
+     * [ShareTextParser] はURLのクエリパラメータを本文行より優先する作りで、
+     * これは座標や施設名がURLに載るGoogle Maps共有では正しい。手動ステージだけ
+     * その優先順位を覆したいので、パーサ側の順序は変えずに呼び出し側で上書きする。
+     */
+    val stagedTitle: String? = null,
+)

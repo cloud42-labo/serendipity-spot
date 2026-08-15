@@ -213,44 +213,52 @@ fun MapScreen(
         // LaunchedEffectが再実行され、同じ共有が二重に取り込まれる
         // （registeredSpotTitleの消費と同じ考え方）。
         onSharedPlaceConsumed()
-        when (shared) {
-            is SharedPlace.Located -> {
-                val target = LatLng(shared.lat, shared.lng)
-                cameraPositionState.position = CameraPosition.fromLatLngZoom(target, SPOT_ZOOM)
-                selectedSpotId = null
-                onClearRoute()
-                // 名前が取れなかった場合は空文字を渡す。RegisterSheetはtitleが空の間
-                // 保存ボタンをenabled = falseにするため、欠損のまま保存されることはない。
-                pendingTitle = shared.name.orEmpty()
-                pendingLatLng = target // これで既存のRegisterSheetが開く
+        if (shared is SharedPlace.Located) {
+            val target = LatLng(shared.lat, shared.lng)
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(target, SPOT_ZOOM)
+            selectedSpotId = null
+            onClearRoute()
+            // 名前が取れなかった場合は空文字を渡す。RegisterSheetはtitleが空の間
+            // 保存ボタンをenabled = falseにするため、欠損のまま保存されることはない。
+            pendingTitle = shared.name.orEmpty()
+            pendingLatLng = target // これで既存のRegisterSheetが開く
+            return@LaunchedEffect
+        }
+        // 座標が取れなかった共有（SearchTerm / Unparsable）は既存の検索モードへ流す。
+        // 共有専用の検索画面は作らない。判断は SharedSearchAction 側に置いてある
+        // （Compose無しでテストできるようにするため）。
+        val action = SharedSearchAction.forSharedPlace(shared) ?: return@LaunchedEffect
+        searchMode = true
+        query = action.query
+        selectedSpotId = null
+        onClearRoute()
+        if (action.clearPrevious) {
+            // 自動実行しない経路では、ここで前回の検索を必ず捨てる。捨てないと warm 起動時に
+            // 古い結果一覧とマーカーが新しい検索語の下に残り、さらに共有直前に走っていた
+            // 検索が後から完了して無関係な結果を表示しうる（Codexレビュー指摘）。
+            // onClearSearch() は進行中のジョブのキャンセルまで行う（clearSearchResults）。
+            resultListVisible = false
+            onClearSearch()
+        }
+        if (action.autoRun) {
+            // 現在地でカメラを合わせられている場合だけ、その近くを優先して探す。
+            // まだ合わせられていない（コールド起動直後・位置情報なし）ときの中心は
+            // 東京のフォールバック座標なので、そこへ絞ると他県から共有された場所が
+            // 見つからなくなる。その場合は範囲を指定せず全国から探す。
+            val center = cameraPositionState.position.target
+            if (cameraCenteredOnRealLocation) {
+                onSearch(action.query, center.latitude, center.longitude)
+            } else {
+                onSearch(action.query, null, null)
             }
-            is SharedPlace.SearchTerm -> {
-                // 既存の検索モードをそのまま開く。共有専用の検索画面は作らない。
-                searchMode = true
-                query = shared.query
-                selectedSpotId = null
-                onClearRoute()
-                // 現在地でカメラを合わせられている場合だけ、その近くを優先して探す。
-                // まだ合わせられていない（コールド起動直後・位置情報なし）ときの中心は
-                // 東京のフォールバック座標なので、そこへ絞ると他県から共有された場所が
-                // 見つからなくなる。その場合は範囲を指定せず全国から探す。
-                val center = cameraPositionState.position.target
-                if (cameraCenteredOnRealLocation) {
-                    onSearch(shared.query, center.latitude, center.longitude)
-                } else {
-                    onSearch(shared.query, null, null)
-                }
-            }
-            SharedPlace.Unparsable -> {
-                // 場所として解釈できないので、検索は自動実行せず入力欄を開くだけにとどめる。
-                // 画面状態の更新を showSnackbar より前に済ませることで、suspend中に LaunchedEffect
-                // が再実行されても既に状態が反映された状態になり、ユーザーが検索欄を使える。
-                searchMode = true
-                query = ""
-                selectedSpotId = null
-                onClearRoute()
-                snackbarHostState.showSnackbar("共有された内容から場所を判別できませんでした。検索してみてください")
-            }
+        }
+        // 表示は scope へ逃がす。この効果は上の onSharedPlaceConsumed() で sharedPlace が
+        // null になった時点でキーが変わりキャンセルされるため、ここで直接 showSnackbar
+        // すると打ち切られて何も出ない。結果として「検索欄が空で開くだけで理由が分からない」
+        // 状態になっていた。errorMessage / registeredSpotTitle と同じ機序
+        // （Codexレビュー指摘の3例目）。
+        action.message?.let { message ->
+            scope.launch { snackbarHostState.showSnackbar(message) }
         }
     }
 
