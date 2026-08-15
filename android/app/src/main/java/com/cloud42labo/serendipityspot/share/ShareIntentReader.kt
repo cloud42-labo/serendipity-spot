@@ -56,9 +56,16 @@ object ShareIntentReader {
         val text = extraText.trim()
         val title = extraTitle?.trim().orEmpty()
         if (isUrlOnly(text) && title.isNotBlank()) {
+            val autoSearch = looksLikePlaceTitle(title)
             return SharedShareText(
                 text = "$title\n$text",
-                autoSearch = looksLikePlaceTitle(title),
+                autoSearch = autoSearch,
+                // 手動ステージ経路に限り、タイトルを別値としても渡す。合成本文だけでは
+                // ShareTextParser がURL内の q= / query= を本文行より先に採用するため、
+                // 例えば https://example.com/search?query=123 を共有すると検索欄に
+                // "123" が入り、引き継いだはずのページ名が消える（Codexレビュー指摘）。
+                // 自動検索する経路は既存の確定挙動なのでここでは触らない。
+                stagedTitle = if (autoSearch) null else title,
             )
         }
         return SharedShareText(text = text, autoSearch = true)
@@ -81,4 +88,14 @@ object ShareIntentReader {
 data class SharedShareText(
     val text: String,
     val autoSearch: Boolean,
+    /**
+     * 手動ステージ（[autoSearch] が false）のときに、検索欄へ入れる語として
+     * URL由来の候補より優先するページタイトル。それ以外の経路では null。
+     *
+     * 合成本文（"タイトル\nURL"）の中だけでは表現できないため別値で持つ。
+     * [ShareTextParser] はURLのクエリパラメータを本文行より優先する作りで、
+     * これは座標や施設名がURLに載るGoogle Maps共有では正しい。手動ステージだけ
+     * その優先順位を覆したいので、パーサ側の順序は変えずに呼び出し側で上書きする。
+     */
+    val stagedTitle: String? = null,
 )

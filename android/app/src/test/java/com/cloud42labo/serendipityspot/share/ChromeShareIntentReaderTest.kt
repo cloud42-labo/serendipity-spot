@@ -2,6 +2,7 @@ package com.cloud42labo.serendipityspot.share
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -89,6 +90,46 @@ class ChromeShareIntentReaderTest {
 
         assertEquals("https://maps.app.goo.gl/abc123", result.text)
         assertTrue(result.autoSearch)
+    }
+
+    @Test
+    fun `手動ステージのときはタイトルを別値でも渡す`() {
+        val result = ShareIntentReader.sharedShareTextOf(
+            action = ShareIntentReader.ACTION_SEND,
+            type = "text/plain",
+            extraText = "https://example.com/search?query=123",
+            extraTitle = "今日の主要ニュースまとめ",
+        )!!
+
+        assertFalse(result.autoSearch)
+        // 合成本文だけでは、URLの query=123 が本文行より優先されてタイトルが消える。
+        // 別値で持たせて後段が優先できるようにする。
+        assertEquals("今日の主要ニュースまとめ", result.stagedTitle)
+    }
+
+    @Test
+    fun `自動検索する経路ではタイトルを別値で渡さない`() {
+        val result = ShareIntentReader.sharedShareTextOf(
+            action = ShareIntentReader.ACTION_SEND,
+            type = "text/plain",
+            extraText = "https://www.aeon.jp/sc/marinpia/",
+            extraTitle = "イオンマリンピアショッピングセンター",
+        )!!
+
+        assertTrue(result.autoSearch)
+        assertNull(result.stagedTitle)
+    }
+
+    @Test
+    fun `タイトルの無い共有には別値が付かない`() {
+        val result = ShareIntentReader.sharedShareTextOf(
+            action = ShareIntentReader.ACTION_SEND,
+            type = "text/plain",
+            extraText = "https://maps.app.goo.gl/abc123",
+            extraTitle = null,
+        )!!
+
+        assertNull(result.stagedTitle)
     }
 
     @Test

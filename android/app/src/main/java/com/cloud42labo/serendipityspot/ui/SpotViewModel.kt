@@ -215,13 +215,13 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
      * [autoSearch] が false の場合、場所名らしき語が取れても検索は自動実行せず、
      * 検索欄へ流し込むだけにとどめる（ブラウザ共有のページタイトルなど、
      * 施設名とは限らないものを勝手に場所検索へ回さないため）。
+     *
+     * [stagedTitle] は、その手動ステージ経路で検索欄へ入れたいページタイトル。
+     * 反映の詳細は [ShareTextParser.parseShared] を参照。
      */
-    fun onSharedText(text: String, autoSearch: Boolean = true) {
+    fun onSharedText(text: String, autoSearch: Boolean = true, stagedTitle: String? = null) {
         if (text.isBlank()) return
-        val parsed = when (val place = ShareTextParser.parse(text)) {
-            is SharedPlace.SearchTerm -> place.copy(autoRun = autoSearch)
-            else -> place
-        }
+        val parsed = ShareTextParser.parseShared(text, autoSearch, stagedTitle)
         _uiState.update { it.copy(sharedPlace = parsed) }
     }
 

@@ -219,7 +219,11 @@ class MainActivity : ComponentActivity() {
         shareResolveJob?.cancel()
         shareResolveJob = lifecycleScope.launch {
             val resolvedText = GoogleMapsShareResolver.resolveIfNeeded(text)
-            viewModel.onSharedText(resolvedText, autoSearch = shared.autoSearch)
+            viewModel.onSharedText(
+                resolvedText,
+                autoSearch = shared.autoSearch,
+                stagedTitle = shared.stagedTitle,
+            )
         }
     }
 
