@@ -18,7 +18,11 @@ import com.cloud42labo.serendipityspot.data.NotificationPreferences
  */
 object NotificationSuppressionPolicy {
 
-    /** 曜日・時間帯の制限内かどうか。制限内＝通知してよい側なら true。 */
+    /**
+     * 曜日・時間帯の制限内かどうか。制限内＝通知してよい側なら true。
+     * `allowedDays`が空集合（全曜日オフ）の場合は、どの曜日も一致しないため常に false
+     * （＝常に抑止）になる。
+     */
     fun isWithinAllowedWindow(
         dayOfWeek: Int,
         minuteOfDay: Int,

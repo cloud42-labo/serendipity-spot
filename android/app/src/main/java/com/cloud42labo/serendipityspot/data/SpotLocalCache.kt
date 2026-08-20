@@ -70,13 +70,7 @@ object SpotLocalCache {
 
     fun loadNotificationPreferences(context: Context): NotificationPreferences {
         val p = prefs(context)
-        val daysCsv = p.getString(KEY_ALLOWED_DAYS, null)
-        val allowedDays = daysCsv
-            ?.split(",")
-            ?.mapNotNull { it.trim().toIntOrNull() }
-            ?.toSet()
-            ?.takeIf { it.isNotEmpty() }
-            ?: NotificationPreferences.ALL_DAYS
+        val allowedDays = parseAllowedDaysCsv(p.getString(KEY_ALLOWED_DAYS, null))
         return NotificationPreferences(
             cooldownMinutes = p.getInt(
                 KEY_COOLDOWN_MINUTES,
@@ -95,6 +89,22 @@ object SpotLocalCache {
             .putInt(KEY_START_MINUTE, preferences.startMinute)
             .putInt(KEY_END_MINUTE, preferences.endMinute)
             .apply()
+    }
+
+    /**
+     * 保存済みの曜日CSVを解釈する。**空集合（＝全曜日オフ）は有効な設定値として
+     * そのまま返す**（[NotificationSuppressionPolicy.isWithinAllowedWindow]が
+     * 空集合を「常に抑止」と解釈するため）。デフォルトの[NotificationPreferences.ALL_DAYS]に
+     * 戻すのは、キー自体が未保存（＝一度も設定画面を保存していない）の`null`のときだけ。
+     * この2つを混同すると、「全曜日オフで保存」がアプリ再起動後に「全曜日オン」へ
+     * 巻き戻ってしまう（SPOT-03-S02のレビュー指摘）。
+     */
+    internal fun parseAllowedDaysCsv(daysCsv: String?): Set<Int> {
+        if (daysCsv == null) return NotificationPreferences.ALL_DAYS
+        return daysCsv
+            .split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .toSet()
     }
 
     // --- 以下は診断用。通知が来ないときに「登録できているか」「イベントが届いているか」を

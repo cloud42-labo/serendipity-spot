@@ -6,6 +6,11 @@ package com.cloud42labo.serendipityspot.data
  * 既定値は「制限なし」（現行動作と同じ）。`allowedDays`が7曜日すべて、
  * `startMinute=0`／`endMinute=DAY_MINUTES`のときは時間帯制限なしとして扱う
  * （[com.cloud42labo.serendipityspot.location.NotificationSuppressionPolicy]参照）。
+ *
+ * `allowedDays`の**空集合は「全曜日で通知しない」という有効な設定値**として扱う
+ * （デフォルトへのフォールバックではない）。保存・復元の両方でこの空集合をそのまま
+ * 維持すること。曖昧にすると「全曜日オフ」が再起動後に「全曜日オン」へ巻き戻る
+ * （[com.cloud42labo.serendipityspot.data.SpotLocalCache.parseAllowedDaysCsv]参照）。
  */
 data class NotificationPreferences(
     val cooldownMinutes: Int = DEFAULT_COOLDOWN_MINUTES,

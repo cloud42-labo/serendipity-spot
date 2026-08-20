@@ -35,6 +35,37 @@ class NotificationSuppressionPolicyTest {
     }
 
     @Test
+    fun `empty allowedDays blocks every day (all-days-off must suppress, not allow)`() {
+        // SPOT-03-S02のレビュー指摘: 全曜日をオフにした設定は「制限なし」ではなく
+        // 「常に抑止」として扱われなければならない。
+        val prefs = defaultPrefs.copy(allowedDays = emptySet())
+        for (day in 1..7) {
+            assertFalse(
+                "day=$day should be blocked when allowedDays is empty",
+                NotificationSuppressionPolicy.isWithinAllowedWindow(
+                    dayOfWeek = day,
+                    minuteOfDay = 12 * 60,
+                    preferences = prefs,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `enter is suppressed when allowedDays is empty even with cooldown elapsed`() {
+        val prefs = defaultPrefs.copy(allowedDays = emptySet(), cooldownMinutes = 1)
+        assertFalse(
+            NotificationSuppressionPolicy.shouldNotifyOnEnter(
+                now = 1_000_000_000L,
+                lastNotifiedAt = 0L,
+                dayOfWeek = 1,
+                minuteOfDay = 12 * 60,
+                preferences = prefs,
+            ),
+        )
+    }
+
+    @Test
     fun `day outside allowedDays is blocked`() {
         val prefs = defaultPrefs.copy(allowedDays = setOf(2, 3, 4, 5, 6)) // 平日のみ
         assertFalse(

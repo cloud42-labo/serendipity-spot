@@ -87,6 +87,13 @@ fun NotificationScheduleDialog(
                         )
                     }
                 }
+                if (allowedDays.isEmpty()) {
+                    Text(
+                        text = "すべての曜日をオフにしています。この設定を保存すると通知は届かなくなります。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(Spacing.md))
                 Text("通知してよい時間帯（時間単位）", style = MaterialTheme.typography.labelLarge)
@@ -114,7 +121,9 @@ fun NotificationScheduleDialog(
                 onSave(
                     NotificationPreferences(
                         cooldownMinutes = cooldownMinutes,
-                        allowedDays = allowedDays.ifEmpty { NotificationPreferences.ALL_DAYS },
+                        // 空集合（全曜日オフ）もユーザーの意図した設定として、そのまま保存する。
+                        // NotificationSuppressionPolicyは空集合を「常に抑止」と解釈する。
+                        allowedDays = allowedDays,
                         startMinute = startHour * 60,
                         endMinute = endHour * 60,
                     ),
