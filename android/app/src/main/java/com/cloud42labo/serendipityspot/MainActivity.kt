@@ -25,7 +25,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.cloud42labo.serendipityspot.data.HealthItem
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
+import com.cloud42labo.serendipityspot.location.NotificationHealthChecker
 import com.cloud42labo.serendipityspot.share.GoogleMapsShareResolver
 import com.cloud42labo.serendipityspot.share.ShareIntentReader
 import com.cloud42labo.serendipityspot.ui.MapScreen
@@ -66,6 +68,10 @@ class MainActivity : ComponentActivity() {
                     var hasForegroundLocation by remember { mutableStateOf(hasForegroundLocationPermission()) }
                     var hasBackgroundLocation by remember { mutableStateOf(hasBackgroundLocationPermission()) }
                     var hasNotificationPermission by remember { mutableStateOf(hasNotificationPermissionGranted()) }
+                    // 通知が届くための端末状態（権限だけでなく位置情報サービス・バッテリー
+                    // 最適化も含む）をまとめて持つ（SPOT-03-S01）。上の3変数は地図上の
+                    // ブロッキングな復帰バナー用、こちらは診断欄の非ブロッキング表示用。
+                    var health by remember { mutableStateOf(NotificationHealthChecker.check(this@MainActivity)) }
                     // 初回説明を終え、権限確認の段階まで来たか。まだ来ていない
                     // （＝これから聞く）間は「拒否された」復帰導線を出さない。
                     // 権限ダイアログを実際に出したかどうかではなく「確認済みか」で持つ。
@@ -130,6 +136,9 @@ class MainActivity : ComponentActivity() {
                                 hasForegroundLocation = hasForegroundLocationPermission()
                                 hasBackgroundLocation = hasBackgroundLocationPermission()
                                 hasNotificationPermission = hasNotificationPermissionGranted()
+                                // 位置情報サービス・バッテリー最適化の設定画面から戻ってきた
+                                // ときも、診断欄の解消済み表示を即座に更新する（SPOT-03-S01-T02）。
+                                health = NotificationHealthChecker.check(this@MainActivity)
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)
@@ -153,6 +162,10 @@ class MainActivity : ComponentActivity() {
                                 onDeleteSpot = viewModel::deleteSpot,
                                 onTestNotification = viewModel::sendTestNotification,
                                 onRefreshDiagnostics = viewModel::refreshDiagnostics,
+                                health = health,
+                                onOpenHealthSettings = { item: HealthItem ->
+                                    startActivity(NotificationHealthChecker.settingsIntentFor(this@MainActivity, item))
+                                },
                                 onSearch = viewModel::searchPlaces,
                                 onClearSearch = viewModel::clearSearchResults,
                                 onFocusConsumed = viewModel::consumeFocusRequest,
