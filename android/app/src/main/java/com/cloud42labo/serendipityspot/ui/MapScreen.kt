@@ -57,6 +57,7 @@ import androidx.core.graphics.drawable.DrawableCompat
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.HealthItem
 import com.cloud42labo.serendipityspot.data.NotificationHealth
+import com.cloud42labo.serendipityspot.data.NotificationPreferences
 import com.cloud42labo.serendipityspot.data.Spot
 import com.cloud42labo.serendipityspot.share.SharedPlace
 import com.cloud42labo.serendipityspot.ui.components.AppTextField
@@ -107,6 +108,8 @@ fun MapScreen(
     onRefreshDiagnostics: () -> Unit,
     health: NotificationHealth,
     onOpenHealthSettings: (HealthItem) -> Unit,
+    notificationPreferences: NotificationPreferences,
+    onSaveNotificationPreferences: (NotificationPreferences) -> Unit,
     onSearch: (query: String, nearLat: Double?, nearLng: Double?) -> Unit,
     onClearSearch: () -> Unit,
     onFocusConsumed: () -> Unit,
@@ -358,9 +361,11 @@ fun MapScreen(
                 lastGeofenceEvent = uiState.lastGeofenceEvent,
                 lastMapEvent = lastMapEvent,
                 health = health,
+                notificationPreferences = notificationPreferences,
                 onTestNotification = onTestNotification,
                 onRefreshDiagnostics = onRefreshDiagnostics,
                 onOpenHealthSettings = onOpenHealthSettings,
+                onSaveNotificationPreferences = onSaveNotificationPreferences,
                 onEditClick = { editingSpot = it },
                 onDeleteClick = { deletingSpot = it },
                 onStreetViewClick = { openStreetView(context, it.lat, it.lng) },

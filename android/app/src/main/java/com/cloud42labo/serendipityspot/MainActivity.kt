@@ -166,6 +166,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenHealthSettings = { item: HealthItem ->
                                     startActivity(NotificationHealthChecker.settingsIntentFor(this@MainActivity, item))
                                 },
+                                notificationPreferences = uiState.notificationPreferences,
+                                onSaveNotificationPreferences = viewModel::updateNotificationPreferences,
                                 onSearch = viewModel::searchPlaces,
                                 onClearSearch = viewModel::clearSearchResults,
                                 onFocusConsumed = viewModel::consumeFocusRequest,
