@@ -118,6 +118,49 @@ class NotificationSuppressionPolicyTest {
         )
     }
 
+    @Test
+    fun `overnight window with restricted day uses the current day on the start side`() {
+        // 月曜だけを許可し「22時〜翌6時」の窓。月曜23時（開始側）は月曜の曜日で判定し許可する。
+        val prefs = defaultPrefs.copy(allowedDays = setOf(2), startMinute = 22 * 60, endMinute = 6 * 60)
+        assertTrue(
+            NotificationSuppressionPolicy.isWithinAllowedWindow(
+                dayOfWeek = 2, // 月曜
+                minuteOfDay = 23 * 60,
+                preferences = prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun `overnight window with restricted day uses the previous day on the end side`() {
+        // Codexレビュー指摘: 月曜だけを許可し「22時〜翌6時」の窓のとき、
+        // 火曜1時は「月曜22時から続く同じ窓」なので許可されるべき（終了側は前日基準）。
+        val prefs = defaultPrefs.copy(allowedDays = setOf(2), startMinute = 22 * 60, endMinute = 6 * 60)
+        assertTrue(
+            "day-after early morning should be allowed as the tail of Monday night's window",
+            NotificationSuppressionPolicy.isWithinAllowedWindow(
+                dayOfWeek = 3, // 火曜
+                minuteOfDay = 1 * 60,
+                preferences = prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun `overnight window end side is blocked when the previous day is not allowed`() {
+        // 同じ設定（月曜だけ許可）で、月曜1時は「日曜22時から続く窓」の一部なので
+        // 日曜が許可されていない以上、抑止されるべき（当日＝月曜で判定してはいけない）。
+        val prefs = defaultPrefs.copy(allowedDays = setOf(2), startMinute = 22 * 60, endMinute = 6 * 60)
+        assertFalse(
+            "Monday early morning belongs to Sunday night's window, which is not allowed",
+            NotificationSuppressionPolicy.isWithinAllowedWindow(
+                dayOfWeek = 2, // 月曜
+                minuteOfDay = 1 * 60,
+                preferences = prefs,
+            ),
+        )
+    }
+
     // --- shouldNotifyOnEnter ---
 
     @Test

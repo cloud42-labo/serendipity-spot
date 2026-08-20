@@ -107,7 +107,14 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             runCatching { authManager.signOut() }
             spreadsheetId = null
-            _uiState.value = SpotUiState()
+            // notificationPreferencesはSpotLocalCache（SharedPreferences）に保存済みの値が
+            // 正であり、サインアウトでは消えない。SpotUiState()でまるごと初期化すると
+            // このフィールドだけデフォルト値（ALL_DAYS等）に巻き戻り、再ログイン後に
+            // ダイアログを開かずに保存すると保存済みのカスタム設定を上書きしてしまう
+            // （Codexレビュー指摘）。コンストラクタと同じくキャッシュから読み直す。
+            _uiState.value = SpotUiState(
+                notificationPreferences = SpotLocalCache.loadNotificationPreferences(getApplication()),
+            )
         }
     }
 

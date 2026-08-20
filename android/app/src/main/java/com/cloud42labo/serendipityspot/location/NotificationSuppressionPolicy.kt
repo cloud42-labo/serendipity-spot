@@ -22,24 +22,38 @@ object NotificationSuppressionPolicy {
      * 曜日・時間帯の制限内かどうか。制限内＝通知してよい側なら true。
      * `allowedDays`が空集合（全曜日オフ）の場合は、どの曜日も一致しないため常に false
      * （＝常に抑止）になる。
+     *
+     * 日をまたぐ区間（`startMinute > endMinute`、例: 22:00〜翌6:00）では、
+     * どの曜日で判定するかが開始側と終了側で異なる点に注意。「月曜22時〜翌6時」の
+     * 窓は、開始側（22時台、`minuteOfDay >= start`）は当日（月曜）の曜日で判定するが、
+     * 終了側（深夜0時〜6時、`minuteOfDay < end`）は前日の夜から続く同じ窓なので
+     * **前日**（月曜の場合は日曜ではなく、この窓自体は月曜が起点なので「当日＝月曜」から
+     * 見て1日前）の曜日で判定する必要がある。当日の曜日で終了側も判定すると、
+     * 「月曜だけ許可」のつもりが火曜未明を誤って抑止し、逆に日曜の窓の続きである
+     * 月曜未明を誤って許可してしまう（Codexレビュー指摘）。
      */
     fun isWithinAllowedWindow(
         dayOfWeek: Int,
         minuteOfDay: Int,
         preferences: NotificationPreferences,
     ): Boolean {
-        if (dayOfWeek !in preferences.allowedDays) return false
-
         val start = preferences.startMinute
         val end = preferences.endMinute
-        return if (start <= end) {
-            // 通常の日中区間（例: 8:00〜22:00）。
-            minuteOfDay in start until end
-        } else {
-            // 日をまたぐ区間（例: 22:00〜翌6:00）。
-            minuteOfDay >= start || minuteOfDay < end
+        if (start <= end) {
+            // 通常の日中区間（例: 8:00〜22:00）。日をまたがないので当日の曜日で判定する。
+            return dayOfWeek in preferences.allowedDays && minuteOfDay in start until end
+        }
+        // 日をまたぐ区間（例: 22:00〜翌6:00）。
+        return when {
+            minuteOfDay >= start -> dayOfWeek in preferences.allowedDays
+            minuteOfDay < end -> previousDayOfWeek(dayOfWeek) in preferences.allowedDays
+            else -> false
         }
     }
+
+    /** [java.util.Calendar.DAY_OF_WEEK]（日=1〜土=7）における前日を返す。 */
+    private fun previousDayOfWeek(dayOfWeek: Int): Int =
+        if (dayOfWeek == 1) 7 else dayOfWeek - 1
 
     /** ENTER（最初の到達）で通知してよいか。 */
     fun shouldNotifyOnEnter(
