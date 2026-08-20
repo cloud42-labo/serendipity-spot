@@ -11,6 +11,7 @@ import com.cloud42labo.serendipityspot.auth.AuthorizationOutcome
 import com.cloud42labo.serendipityspot.auth.GoogleAuthManager
 import com.cloud42labo.serendipityspot.auth.SignedInUser
 import com.cloud42labo.serendipityspot.data.DirectionsRepository
+import com.cloud42labo.serendipityspot.data.NotificationPreferences
 import com.cloud42labo.serendipityspot.data.PlaceResult
 import com.cloud42labo.serendipityspot.data.PlaceSearchOutcome
 import com.cloud42labo.serendipityspot.data.PlaceSearcher
@@ -44,6 +45,8 @@ data class SpotUiState(
     // 通知が来ないときの切り分け用。アプリの動作には影響しない。
     val lastRegistration: String? = null,
     val lastGeofenceEvent: String? = null,
+    // 再通知クールダウン・通知可能時間帯の設定（SPOT-03-S02）。
+    val notificationPreferences: NotificationPreferences = NotificationPreferences(),
     val searchResults: List<PlaceResult> = emptyList(),
     val isSearching: Boolean = false,
     val routeToSpot: RouteInfo? = null,
@@ -67,7 +70,9 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
 
     private var spreadsheetId: String? = null
 
-    private val _uiState = MutableStateFlow(SpotUiState())
+    private val _uiState = MutableStateFlow(
+        SpotUiState(notificationPreferences = SpotLocalCache.loadNotificationPreferences(application)),
+    )
     val uiState: StateFlow<SpotUiState> = _uiState.asStateFlow()
 
     /** Sheets/Driveの許可画面をActivityに出してもらうための依頼。 */
@@ -102,7 +107,14 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             runCatching { authManager.signOut() }
             spreadsheetId = null
-            _uiState.value = SpotUiState()
+            // notificationPreferencesはSpotLocalCache（SharedPreferences）に保存済みの値が
+            // 正であり、サインアウトでは消えない。SpotUiState()でまるごと初期化すると
+            // このフィールドだけデフォルト値（ALL_DAYS等）に巻き戻り、再ログイン後に
+            // ダイアログを開かずに保存すると保存済みのカスタム設定を上書きしてしまう
+            // （Codexレビュー指摘）。コンストラクタと同じくキャッシュから読み直す。
+            _uiState.value = SpotUiState(
+                notificationPreferences = SpotLocalCache.loadNotificationPreferences(getApplication()),
+            )
         }
     }
 
@@ -133,6 +145,15 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
                 lastGeofenceEvent = SpotLocalCache.loadLastGeofenceEvent(app),
             )
         }
+    }
+
+    /**
+     * 再通知クールダウン・通知可能時間帯の設定を保存する（SPOT-03-S02）。
+     * 保存した値は次回のジオフェンスイベントから[GeofenceBroadcastReceiver]が使う。
+     */
+    fun updateNotificationPreferences(preferences: NotificationPreferences) {
+        SpotLocalCache.saveNotificationPreferences(getApplication(), preferences)
+        _uiState.update { it.copy(notificationPreferences = preferences) }
     }
 
     /**

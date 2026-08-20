@@ -19,7 +19,9 @@ import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.Spot
 
 object NotificationHelper {
-    private const val CHANNEL_ID = "serendipity_spot_proximity"
+    // 通知ヘルス診断（NotificationHealthChecker）がこのチャネルの有効性を見る必要があるため
+    // internal公開（SPOT-03-S01: Codexレビュー指摘対応）。
+    internal const val CHANNEL_ID = "serendipity_spot_proximity"
     private val VIBRATE_PATTERN = longArrayOf(0, 500, 200, 500)
 
     fun ensureChannel(context: Context) {

@@ -20,6 +20,10 @@ object SpotLocalCache {
     private const val KEY_NOTIFIED_AT_PREFIX = "notified_at_"
     private const val KEY_NUDGED_AT_PREFIX = "nudged_at_"
     private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+    private const val KEY_COOLDOWN_MINUTES = "notif_cooldown_minutes"
+    private const val KEY_ALLOWED_DAYS = "notif_allowed_days"
+    private const val KEY_START_MINUTE = "notif_start_minute"
+    private const val KEY_END_MINUTE = "notif_end_minute"
 
     fun save(context: Context, spots: List<Spot>) {
         prefs(context).edit().putString(KEY_SPOTS, spots.toJson()).apply()
@@ -59,6 +63,48 @@ object SpotLocalCache {
 
     fun markOnboardingSeen(context: Context) {
         prefs(context).edit().putBoolean(KEY_ONBOARDING_SEEN, true).apply()
+    }
+
+    // --- 再通知クールダウン・通知可能時間帯の設定（SPOT-03-S02）。既定値は
+    //     NotificationPreferencesのデフォルト（=制限なし・旧来のクールダウン3時間）と一致させる。
+
+    fun loadNotificationPreferences(context: Context): NotificationPreferences {
+        val p = prefs(context)
+        val allowedDays = parseAllowedDaysCsv(p.getString(KEY_ALLOWED_DAYS, null))
+        return NotificationPreferences(
+            cooldownMinutes = p.getInt(
+                KEY_COOLDOWN_MINUTES,
+                NotificationPreferences.DEFAULT_COOLDOWN_MINUTES,
+            ),
+            allowedDays = allowedDays,
+            startMinute = p.getInt(KEY_START_MINUTE, 0),
+            endMinute = p.getInt(KEY_END_MINUTE, NotificationPreferences.DAY_MINUTES),
+        )
+    }
+
+    fun saveNotificationPreferences(context: Context, preferences: NotificationPreferences) {
+        prefs(context).edit()
+            .putInt(KEY_COOLDOWN_MINUTES, preferences.cooldownMinutes)
+            .putString(KEY_ALLOWED_DAYS, preferences.allowedDays.sorted().joinToString(","))
+            .putInt(KEY_START_MINUTE, preferences.startMinute)
+            .putInt(KEY_END_MINUTE, preferences.endMinute)
+            .apply()
+    }
+
+    /**
+     * 保存済みの曜日CSVを解釈する。**空集合（＝全曜日オフ）は有効な設定値として
+     * そのまま返す**（[NotificationSuppressionPolicy.isWithinAllowedWindow]が
+     * 空集合を「常に抑止」と解釈するため）。デフォルトの[NotificationPreferences.ALL_DAYS]に
+     * 戻すのは、キー自体が未保存（＝一度も設定画面を保存していない）の`null`のときだけ。
+     * この2つを混同すると、「全曜日オフで保存」がアプリ再起動後に「全曜日オン」へ
+     * 巻き戻ってしまう（SPOT-03-S02のレビュー指摘）。
+     */
+    internal fun parseAllowedDaysCsv(daysCsv: String?): Set<Int> {
+        if (daysCsv == null) return NotificationPreferences.ALL_DAYS
+        return daysCsv
+            .split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .toSet()
     }
 
     // --- 以下は診断用。通知が来ないときに「登録できているか」「イベントが届いているか」を

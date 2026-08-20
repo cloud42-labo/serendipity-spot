@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,12 +21,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cloud42labo.serendipityspot.BuildConfig
+import com.cloud42labo.serendipityspot.data.HealthItem
+import com.cloud42labo.serendipityspot.data.NotificationHealth
+import com.cloud42labo.serendipityspot.data.NotificationPreferences
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.ui.components.NotificationScheduleDialog
 import com.cloud42labo.serendipityspot.ui.components.SpotActionIcons
 import com.cloud42labo.serendipityspot.ui.theme.Spacing
 
@@ -41,13 +50,28 @@ fun SpotListSheet(
     lastRegistration: String?,
     lastGeofenceEvent: String?,
     lastMapEvent: String?,
+    health: NotificationHealth,
+    notificationPreferences: NotificationPreferences,
     onSpotClick: (Spot) -> Unit,
     onEditClick: (Spot) -> Unit,
     onDeleteClick: (Spot) -> Unit,
     onStreetViewClick: (Spot) -> Unit,
     onTestNotification: () -> Unit,
     onRefreshDiagnostics: () -> Unit,
+    onOpenHealthSettings: (HealthItem) -> Unit,
+    onSaveNotificationPreferences: (NotificationPreferences) -> Unit,
 ) {
+    var showScheduleDialog by remember { mutableStateOf(false) }
+    if (showScheduleDialog) {
+        NotificationScheduleDialog(
+            initial = notificationPreferences,
+            onDismiss = { showScheduleDialog = false },
+            onSave = {
+                onSaveNotificationPreferences(it)
+                showScheduleDialog = false
+            },
+        )
+    }
     // シート全体を1つの LazyColumn にする。見出しと診断を外側の Column に置いて
     // 高さで頭打ちにすると、はみ出した分（テスト通知ボタン）が切り捨てられて
     // 永久に押せなくなる。実際 v0.10.x はその状態だった。
@@ -152,8 +176,11 @@ fun SpotListSheet(
                 lastRegistration = lastRegistration,
                 lastGeofenceEvent = lastGeofenceEvent,
                 lastMapEvent = lastMapEvent,
+                health = health,
                 onTestNotification = onTestNotification,
                 onRefresh = onRefreshDiagnostics,
+                onOpenHealthSettings = onOpenHealthSettings,
+                onOpenSchedule = { showScheduleDialog = true },
             )
         }
     }
@@ -168,8 +195,11 @@ private fun DiagnosticsBlock(
     lastRegistration: String?,
     lastGeofenceEvent: String?,
     lastMapEvent: String?,
+    health: NotificationHealth,
     onTestNotification: () -> Unit,
     onRefresh: () -> Unit,
+    onOpenHealthSettings: (HealthItem) -> Unit,
+    onOpenSchedule: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl, vertical = Spacing.md),
@@ -210,6 +240,33 @@ private fun DiagnosticsBlock(
             TextButton(onClick = onTestNotification) { Text("テスト通知") }
             Spacer(modifier = Modifier.width(Spacing.sm))
             TextButton(onClick = onRefresh) { Text("更新") }
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            TextButton(onClick = onOpenSchedule) { Text("通知設定") }
+        }
+        // 通知が来ない原因を「権限は取れているが端末設定側で止まっている」ケースまで
+        // 切り分けられるように、上のジオフェンス診断とは別枠で表示する（SPOT-03-S01）。
+        if (!health.allHealthy) {
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            Text(
+                text = "通知が届かない原因になりうる設定",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            health.issues.forEach { item ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                ) {
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onOpenHealthSettings(item) }) { Text("設定を開く") }
+                }
+            }
         }
     }
 }

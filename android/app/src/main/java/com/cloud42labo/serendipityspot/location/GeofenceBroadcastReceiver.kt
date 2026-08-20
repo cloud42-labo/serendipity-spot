@@ -7,6 +7,7 @@ import com.cloud42labo.serendipityspot.data.SpotLocalCache
 import com.cloud42labo.serendipityspot.notification.NotificationHelper
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
+import java.util.Calendar
 
 /**
  * システムからジオフェンス到達イベントを受け取る。
@@ -46,6 +47,10 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         NotificationHelper.ensureChannel(context)
         val cachedSpots = SpotLocalCache.load(context).associateBy { it.id }
         val now = System.currentTimeMillis()
+        val preferences = SpotLocalCache.loadNotificationPreferences(context)
+        val calendar = Calendar.getInstance().apply { timeInMillis = now }
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
 
         var notified = 0
         var suppressed = 0
@@ -61,11 +66,18 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
             if (isDwell) {
                 // 二度目の合図。一度目を見逃した場合の救済なので、
-                // 「同じ滞在の続き」であるときに限る。
-                val sameVisit = now - lastNotified < SAME_VISIT_MS
-                val nudgedRecently =
-                    now - SpotLocalCache.lastNudgedAt(context, spot.id) < NOTIFY_COOLDOWN_MS
-                if (!sameVisit || nudgedRecently) {
+                // 「同じ滞在の続き」であるときに限る。優先順位の定義は
+                // NotificationSuppressionPolicy（SPOT-03-S02-T01/T02）。
+                val shouldNotify = NotificationSuppressionPolicy.shouldNotifyOnDwell(
+                    now = now,
+                    lastNotifiedAt = lastNotified,
+                    lastNudgedAt = SpotLocalCache.lastNudgedAt(context, spot.id),
+                    sameVisitMs = SAME_VISIT_MS,
+                    dayOfWeek = dayOfWeek,
+                    minuteOfDay = minuteOfDay,
+                    preferences = preferences,
+                )
+                if (!shouldNotify) {
                     suppressed++
                     return@forEach
                 }
@@ -76,8 +88,16 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             }
 
             // 同じスポットで鳴り続けないようにする。出入りを繰り返す場所でも
-            // 一定時間は1回にまとめる。
-            if (now - lastNotified < NOTIFY_COOLDOWN_MS) {
+            // 一定時間は1回にまとめる（クールダウン）。曜日・時間帯の制限も
+            // ここで併せて評価する（SPOT-03-S02）。
+            val shouldNotify = NotificationSuppressionPolicy.shouldNotifyOnEnter(
+                now = now,
+                lastNotifiedAt = lastNotified,
+                dayOfWeek = dayOfWeek,
+                minuteOfDay = minuteOfDay,
+                preferences = preferences,
+            )
+            if (!shouldNotify) {
                 suppressed++
                 return@forEach
             }
@@ -95,9 +115,6 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_GEOFENCE_EVENT = "com.cloud42labo.serendipityspot.ACTION_GEOFENCE_EVENT"
-
-        /** 同じスポットを再通知しない時間。 */
-        private const val NOTIFY_COOLDOWN_MS = 3 * 60 * 60 * 1000L
 
         /**
          * 一度目の通知からこの時間内の DWELL は「同じ滞在の続き」とみなし、
