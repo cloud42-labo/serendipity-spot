@@ -100,14 +100,20 @@ object NotificationHelper {
      * Contextに依存しない純粋関数として切り出し、境界ケース
      * （メモなし・短文・長文・改行や記号を含む文）をユニットテストで固定できるようにした
      * （SPOT-03-S03-T02）。
+     *
+     * 単純な`String.take(n)`はUTF-16のサロゲートペア境界（絵文字など、コードポイントが
+     * 2コード単位で表現される文字）をちょうど分断しうる。上位サロゲートだけを残すと
+     * 不正な文字列になり、代替文字（�相当）で表示されうるため、その場合は
+     * 上位サロゲートごと1文字分手前で打ち切る（Codexレビュー指摘）。
      */
     internal fun bodyFor(memo: String): String {
         val text = memo.ifBlank { DEFAULT_BODY }
-        return if (text.length > MAX_BODY_LENGTH) {
-            text.take(MAX_BODY_LENGTH) + "…"
-        } else {
-            text
+        if (text.length <= MAX_BODY_LENGTH) return text
+        var cut = MAX_BODY_LENGTH
+        if (Character.isHighSurrogate(text[cut - 1])) {
+            cut -= 1
         }
+        return text.substring(0, cut) + "…"
     }
 
     /**
