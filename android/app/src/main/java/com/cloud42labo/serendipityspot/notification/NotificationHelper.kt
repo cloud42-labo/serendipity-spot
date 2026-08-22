@@ -24,6 +24,15 @@ object NotificationHelper {
     internal const val CHANNEL_ID = "serendipity_spot_proximity"
     private val VIBRATE_PATTERN = longArrayOf(0, 500, 200, 500)
 
+    private const val DEFAULT_BODY = "近くに来ました！"
+
+    /**
+     * 通知本文の上限文字数（SPOT-03-S03-T01）。BigTextStyleは技術的にはもっと長い文字列も
+     * 描画できるが、OEMの通知シェード実装によっては極端に長い本文でレイアウトが乱れる
+     * ことがあるため、常識的な長さで打ち切る。
+     */
+    private const val MAX_BODY_LENGTH = 200
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -64,8 +73,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val body = spot.memo.ifBlank { "近くに来ました！" }
-        val title = if (isNudge) "まだ近くです: ${spot.title}" else spot.title
+        val body = bodyFor(spot.memo)
+        val title = titleFor(spot.title, isNudge)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             // OS標準の汎用アイコンではなく、地図の目印と同じ旗アイコンを使う
@@ -84,6 +93,29 @@ object NotificationHelper {
 
         NotificationManagerCompat.from(context).notify(spot.id.hashCode(), notification)
     }
+
+    /**
+     * 通知本文（保存理由）を組み立てる（SPOT-03-S03-T01）。メモが無ければ既定文へ
+     * フォールバックし、長文は[MAX_BODY_LENGTH]で打ち切って省略記号を付ける。
+     * Contextに依存しない純粋関数として切り出し、境界ケース
+     * （メモなし・短文・長文・改行や記号を含む文）をユニットテストで固定できるようにした
+     * （SPOT-03-S03-T02）。
+     */
+    internal fun bodyFor(memo: String): String {
+        val text = memo.ifBlank { DEFAULT_BODY }
+        return if (text.length > MAX_BODY_LENGTH) {
+            text.take(MAX_BODY_LENGTH) + "…"
+        } else {
+            text
+        }
+    }
+
+    /**
+     * 通知タイトルを組み立てる。施設名（[spotTitle]）は常にどこかに含まれるため、
+     * 本文（[bodyFor]）がどんな内容・長さでも施設名の識別性は失われない（SPOT-03-S03-T02のAC）。
+     */
+    internal fun titleFor(spotTitle: String, isNudge: Boolean): String =
+        if (isNudge) "まだ近くです: $spotTitle" else spotTitle
 
     private fun vibrate(context: Context) {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
