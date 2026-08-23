@@ -16,9 +16,9 @@ GitHub Releasesから直接APKを配る形。Google Play一般公開は、それ
 | 項目 | 状態 |
 | :--- | :--- |
 | 1. アプリ署名 | 🟡 CI側の仕組みは既存。**release鍵の生成だけHuman未実施** |
-| 2. AAB (Android App Bundle) | ✅ 完了（このタスクで実機確認済み） |
+| 2. AAB (Android App Bundle) | 🟡 生成コマンド自体は成功を確認。**署名済み成果物での検証はrelease鍵設定後に要実施**（現状は未署名AABしか作れない） |
 | 3. ストア掲載情報 | 🟡 文言は下書き済み。**画像素材はHuman未着手** |
-| 4. プライバシー/データ安全性 | 🟡 プライバシーポリシーは既存。**Data Safetyフォーム入力はHuman未実施** |
+| 4. プライバシー/データ安全性 | 🔴 プライバシーポリシーが立ち寄り履歴（SPOT-04-S01）に未対応。**内容の更新がHuman未実施**（下記「4.」参照）。Data Safetyフォーム入力も未実施 |
 | 5. 対象APIレベル | ✅ 完了（このタスクで対応。36へ引き上げ済み） |
 
 以下、項目ごとに詳細と、Human Requestとして切り出したタスクへのリンクを記載する。
@@ -46,7 +46,7 @@ GitHub Releasesから直接APKを配る形。Google Play一般公開は、それ
 
 ## 2. AAB (Android App Bundle)
 
-**完了。** このタスクで実際にビルドして確認した。
+**ビルド生成コマンド自体は成功を確認した。署名済み成果物での検証は未実施（release鍵設定後）。**
 
 ```sh
 ./gradlew bundleRelease
@@ -56,8 +56,11 @@ GitHub Releasesから直接APKを配る形。Google Play一般公開は、それ
 現状はrelease鍵未設定のため**未署名**のAABが生成される（ビルド自体は成功し、ファイル名も
 `app-release-unsigned.apk`のように`-unsigned`が付くことを実測で確認済み。「debug署名に
 フォールバックする」という`build.gradle.kts`の旧コメントは誤りだったため、あわせて修正した。
-Codexレビュー指摘、SPOT-06-S01のPR #25）。この未署名のAABはPlay Consoleに提出できない。
-release鍵設定後、同じコマンドで正式な署名付きAABが得られる（→「1. アプリ署名」参照）。
+Codexレビュー指摘、SPOT-06-S01のPR #25）。**この未署名のAABはPlay Consoleに提出できず、
+実際の署名・インストール経路の検証にもならない。** release鍵設定（→「1. アプリ署名」）後に
+署名付きAABで改めて生成・検証する必要がある（この検証自体はビルドコマンドの成功確認であり、
+実機でのインストール・起動確認とは別。実機確認は`SPOT-06-S02`（テストトラック配布検証）の
+スコープ）。
 
 `isMinifyEnabled = false`（コード圧縮なし）のため、圧縮関連のProGuard起因の不具合は無い。
 将来 `true` に変える場合は改めて実機確認が要る。
@@ -136,9 +139,14 @@ release鍵設定後、同じコマンドで正式な署名付きAABが得られ�
 
 ## 4. プライバシー / データ安全性
 
-**プライバシーポリシーは既に公開済み。** [docs/privacy-policy.html](../docs/privacy-policy.html)
-（GitHub Pages、カスタムドメイン設定あり、`docs/CNAME`）。Play Console
-の「アプリのコンテンツ」→「プライバシーポリシー」にこのURLをそのまま設定できる。
+**プライバシーポリシーは公開済み。** [docs/privacy-policy.html](../docs/privacy-policy.html)
+（GitHub Pages、カスタムドメイン設定あり、`docs/CNAME`）。
+
+このタスク（SPOT-06-S01）で内容を更新した。当初は立ち寄り履歴（SPOT-04-S01で追加）の
+保存・削除について触れておらず、Play Consoleへ提出する内容として不正確だった
+（Codexレビュー指摘、SPOT-06-S01のPR #25）。「位置情報」節に立ち寄り履歴の保存を、
+「データの削除」節に個別取り消し・端末データ消去による削除方法を追記済み。
+Play Consoleの「アプリのコンテンツ」→「プライバシーポリシー」にこのURLをそのまま設定できる。
 
 **未実施なのは Play Console の Data Safety フォーム入力**（Play Console画面上の質問形式で、
 APIでは埋められずHumanの操作が必要）。回答の下書き:
