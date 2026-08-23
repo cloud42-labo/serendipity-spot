@@ -20,6 +20,11 @@ object SpotLocalCache {
     private const val KEY_NOTIFIED_AT_PREFIX = "notified_at_"
     private const val KEY_NUDGED_AT_PREFIX = "nudged_at_"
     private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+    private const val KEY_ONBOARDING_VERSION = "onboarding_version"
+
+    // internal（privateではない）なのは、版数比較だけを切り出したisOnboardingVersionCurrent()を
+    // Context無しでテストするため（SpotLocalCacheOnboardingVersionTest参照）。
+    internal const val CURRENT_ONBOARDING_VERSION = 2
     private const val KEY_COOLDOWN_MINUTES = "notif_cooldown_minutes"
     private const val KEY_ALLOWED_DAYS = "notif_allowed_days"
     private const val KEY_START_MINUTE = "notif_start_minute"
@@ -58,12 +63,28 @@ object SpotLocalCache {
         prefs(context).edit().putLong(KEY_NUDGED_AT_PREFIX + spotId, at).apply()
     }
 
-    /** 初回説明（アプリの目的・権限の理由）を見せたら true。端末単位で一度だけ表示する。 */
+    /**
+     * 現行版の初回説明を確認済みならtrue。
+     * 旧版は`onboarding_seen`のbooleanのみだったため、バージョンキーを持たない既存ユーザーにも
+     * バックグラウンド位置情報の開示を追加したv2を一度だけ再表示する。
+     */
     fun hasSeenOnboarding(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_ONBOARDING_SEEN, false)
+        isOnboardingVersionCurrent(prefs(context).getInt(KEY_ONBOARDING_VERSION, 0))
+
+    /**
+     * [hasSeenOnboarding]の版数比較だけを切り出した純粋関数。SharedPreferencesへの
+     * 読み書きを介さないため、Robolectric等のContext依存なしにテストできる
+     * （SPOT-06-S01-T03）。バージョンキー未保存の既存ユーザーはstoredVersion=0として
+     * 呼ばれ、CURRENT_ONBOARDING_VERSIONより小さいのでfalse（＝再表示）になる。
+     */
+    internal fun isOnboardingVersionCurrent(storedVersion: Int): Boolean =
+        storedVersion >= CURRENT_ONBOARDING_VERSION
 
     fun markOnboardingSeen(context: Context) {
-        prefs(context).edit().putBoolean(KEY_ONBOARDING_SEEN, true).apply()
+        prefs(context).edit()
+            .putBoolean(KEY_ONBOARDING_SEEN, true)
+            .putInt(KEY_ONBOARDING_VERSION, CURRENT_ONBOARDING_VERSION)
+            .apply()
     }
 
     // --- 再通知クールダウン・通知可能時間帯の設定（SPOT-03-S02）。既定値は

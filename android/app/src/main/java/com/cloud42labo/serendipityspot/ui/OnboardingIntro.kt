@@ -3,11 +3,14 @@ package com.cloud42labo.serendipityspot.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
@@ -31,10 +34,16 @@ import com.cloud42labo.serendipityspot.ui.theme.Spacing
 fun OnboardingIntro(onStart: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AppCard(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth()
+                .fillMaxHeight(),
         ) {
             Column(
-                modifier = Modifier.padding(Spacing.xxl),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(Spacing.xxl),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
@@ -54,8 +63,16 @@ fun OnboardingIntro(onStart: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(Spacing.lg))
                 Text(
-                    "次に、位置情報と通知の許可を聞かれます。近づいたことに気づいて" +
-                        "通知するために必要です。",
+                    "登録したスポットへの接近を検知して通知するため、アプリを閉じているときや" +
+                        "使用していないときにも位置情報を利用します。近接判定は端末上で行われ、" +
+                        "この判定のための位置情報が開発者へ送信されることはありません。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(Spacing.md))
+                Text(
+                    "次に、位置情報（バックグラウンド利用を含む）と通知の許可を確認します。" +
+                        "許可しない場合、近づいたときの通知は利用できません。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
