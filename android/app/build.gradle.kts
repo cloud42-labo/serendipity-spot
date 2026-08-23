@@ -74,6 +74,14 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests {
+            // RobolectricでComposeを実描画するテスト（OnboardingIntroLayoutTest、
+            // SPOT-06-S01-T03）がリソース（テーマ・文字列等）を必要とするため。
+            isIncludeAndroidResources = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -137,4 +145,14 @@ dependencies {
     // （SPOT-04-S01-T01、VisitRecordTestで初めてorg.jsonに依存するテストを追加した際に判明）。
     testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+
+    // Compose UIをRobolectric（JVM上、emulator不要）で実描画してテストするための構成
+    // （OnboardingIntroLayoutTest、SPOT-06-S01-T03）。androidTestではなくtestImplementation
+    // に付けているのはRobolectricがJVM単体テストとして動くため。
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    // createComposeRule()がテスト用のホストActivityを起動するために要る（manifestを提供するだけ）。
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

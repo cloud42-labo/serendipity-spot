@@ -108,20 +108,26 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // 初回説明を閉じるまで権限ダイアログを出さない。
+                    // 「次にどちらの権限を求めるか」の分岐はnextOnboardingPermissionStep()に
+                    // 切り出してあり、Context非依存でテストできる（OnboardingPermissionFlowTest、
+                    // SPOT-06-S01-T03）。
                     LaunchedEffect(showOnboarding) {
                         if (showOnboarding) return@LaunchedEffect
                         permissionsChecked = true
-                        val permissions = mutableListOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                        )
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            permissions += Manifest.permission.POST_NOTIFICATIONS
-                        }
-                        if (!hasForegroundLocation) {
-                            foregroundLauncher.launch(permissions.toTypedArray())
-                        } else if (!hasBackgroundLocation && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                        when (nextOnboardingPermissionStep(hasForegroundLocation, hasBackgroundLocation)) {
+                            NextOnboardingPermissionStep.REQUEST_FOREGROUND -> {
+                                val permissions = mutableListOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                                )
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    permissions += Manifest.permission.POST_NOTIFICATIONS
+                                }
+                                foregroundLauncher.launch(permissions.toTypedArray())
+                            }
+                            NextOnboardingPermissionStep.REQUEST_BACKGROUND ->
+                                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                            NextOnboardingPermissionStep.NONE -> Unit
                         }
                     }
 
