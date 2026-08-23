@@ -141,6 +141,10 @@ object SpotLocalCache {
         saveVisitLog(context, VisitLogPolicy.removeVisitRecord(loadVisitLog(context), recordId))
     }
 
+    /** ジオフェンスのDWELL再通知抑止に使う（[VisitLogPolicy.hasRecentVisitRecord]参照）。 */
+    fun hasRecentVisitRecord(context: Context, spotId: String, at: Long, withinMs: Long): Boolean =
+        VisitLogPolicy.hasRecentVisitRecord(loadVisitLog(context), spotId, at, withinMs)
+
     // --- 以下は診断用。通知が来ないときに「登録できているか」「イベントが届いているか」を
     //     切り分けるためだけのもの。アプリの動作そのものには影響しない。
 

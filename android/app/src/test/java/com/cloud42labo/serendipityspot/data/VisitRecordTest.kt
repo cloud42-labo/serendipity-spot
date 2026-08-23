@@ -121,4 +121,30 @@ class VisitRecordTest {
         val existing = listOf(VisitRecord(id = "r1", spotId = "s1", spotTitle = "喫茶店", recordedAt = 1_000L))
         assertEquals(existing, VisitLogPolicy.removeVisitRecord(existing, "unknown"))
     }
+
+    // --- VisitLogPolicy.hasRecentVisitRecord（DWELL再通知の抑止判定、Codexレビュー指摘） ---
+
+    @Test
+    fun `hasRecentVisitRecord is true within the window for the same spot`() {
+        val existing = listOf(VisitRecord(id = "r1", spotId = "s1", spotTitle = "喫茶店", recordedAt = 10_000L))
+        assertTrue(VisitLogPolicy.hasRecentVisitRecord(existing, "s1", at = 10_000L + 60_000L, withinMs = 30 * 60_000L))
+    }
+
+    @Test
+    fun `hasRecentVisitRecord is false after the window elapses`() {
+        val existing = listOf(VisitRecord(id = "r1", spotId = "s1", spotTitle = "喫茶店", recordedAt = 10_000L))
+        val withinMs = 30 * 60_000L
+        assertFalse(VisitLogPolicy.hasRecentVisitRecord(existing, "s1", at = 10_000L + withinMs + 1, withinMs = withinMs))
+    }
+
+    @Test
+    fun `hasRecentVisitRecord is scoped to the same spot only`() {
+        val existing = listOf(VisitRecord(id = "r1", spotId = "s1", spotTitle = "喫茶店", recordedAt = 10_000L))
+        assertFalse(VisitLogPolicy.hasRecentVisitRecord(existing, "s2", at = 10_000L + 1_000L, withinMs = 30 * 60_000L))
+    }
+
+    @Test
+    fun `hasRecentVisitRecord is false with no records`() {
+        assertFalse(VisitLogPolicy.hasRecentVisitRecord(emptyList(), "s1", at = 10_000L, withinMs = 30 * 60_000L))
+    }
 }

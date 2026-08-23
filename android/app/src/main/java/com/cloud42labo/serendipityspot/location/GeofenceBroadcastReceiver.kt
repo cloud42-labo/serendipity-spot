@@ -65,6 +65,16 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             val lastNotified = SpotLocalCache.lastNotifiedAt(context, spot.id)
 
             if (isDwell) {
+                // 既に「寄った」を記録済みの滞在では、DWELLの再通知を出さない。
+                // notifyVisitRecorded()とnotifyNearby()は同じ通知IDを使うため、
+                // ここで通常の近接通知を出すと、表示中の「取り消す」ボタン付き確認通知が
+                // 上書きされ、誤操作を取り消す手段が失われる
+                // （Codexレビュー指摘、SPOT-04-S01のPR #25）。
+                if (SpotLocalCache.hasRecentVisitRecord(context, spot.id, now, SAME_VISIT_MS)) {
+                    suppressed++
+                    return@forEach
+                }
+
                 // 二度目の合図。一度目を見逃した場合の救済なので、
                 // 「同じ滞在の続き」であるときに限る。優先順位の定義は
                 // NotificationSuppressionPolicy（SPOT-03-S02-T01/T02）。

@@ -91,6 +91,17 @@ object VisitLogPolicy {
     fun removeVisitRecord(existing: List<VisitRecord>, recordId: String): List<VisitRecord> =
         existing.filterNot { it.id == recordId }
 
+    /**
+     * [spotId]への記録が[withinMs]以内に既にあるか。ジオフェンスのDWELL（同じ滞在中の
+     * 二度目の合図）が、確認通知（「記録しました（取り消す）」）を通常の近接通知で
+     * 上書きしてしまうのを防ぐために使う（[GeofenceBroadcastReceiver]から呼ばれる。
+     * Codexレビュー指摘、SPOT-04-S01のPR #25）。`notifyVisitRecorded()`と`notifyNearby()`は
+     * 同じ通知IDを使うため、既に「寄った」を記録済みの滞在でDWELLの再通知を出すと、
+     * せっかく表示していた「取り消す」ボタンが消え、誤操作を取り消す手段が失われる。
+     */
+    fun hasRecentVisitRecord(existing: List<VisitRecord>, spotId: String, at: Long, withinMs: Long): Boolean =
+        existing.any { it.spotId == spotId && at - it.recordedAt in 0..withinMs }
+
     data class AddVisitResult(
         val records: List<VisitRecord>,
         val record: VisitRecord,
