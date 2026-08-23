@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.cloud42labo.serendipityspot.MainActivity
 import com.cloud42labo.serendipityspot.R
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.location.VisitActionReceiver
 
 object NotificationHelper {
     // 通知ヘルス診断（NotificationHealthChecker）がこのチャネルの有効性を見る必要があるため
@@ -25,6 +26,11 @@ object NotificationHelper {
     private val VIBRATE_PATTERN = longArrayOf(0, 500, 200, 500)
 
     private const val DEFAULT_BODY = "近くに来ました！"
+
+    // SPOT-04-S01-T02: 通知アクションのラベル文言
+    private const val VISITED_ACTION_LABEL = "寄った"
+    private const val UNDO_ACTION_LABEL = "取り消す"
+    private const val VISIT_RECORDED_TITLE = "記録しました"
 
     /**
      * 通知本文の上限文字数（SPOT-03-S03-T01）。BigTextStyleは技術的にはもっと長い文字列も
@@ -75,6 +81,22 @@ object NotificationHelper {
 
         val body = bodyFor(spot.memo)
         val title = titleFor(spot.title, isNudge)
+        val notificationId = spot.id.hashCode()
+
+        // 「寄った」アクション（SPOT-04-S01-T02）。自動訪問判定ではなく、
+        // このボタンをユーザーが明示的にタップした場合だけ立ち寄りを記録する。
+        val markVisitedIntent = Intent(context, VisitActionReceiver::class.java).apply {
+            action = VisitActionReceiver.ACTION_MARK_VISITED
+            putExtra(VisitActionReceiver.EXTRA_SPOT_ID, spot.id)
+            putExtra(VisitActionReceiver.EXTRA_SPOT_TITLE, spot.title)
+            putExtra(VisitActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        val markVisitedPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            markVisitedIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             // OS標準の汎用アイコンではなく、地図の目印と同じ旗アイコンを使う
@@ -89,9 +111,54 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVibrate(VIBRATE_PATTERN)
+            .addAction(R.drawable.ic_flag_pin, VISITED_ACTION_LABEL, markVisitedPendingIntent)
             .build()
 
-        NotificationManagerCompat.from(context).notify(spot.id.hashCode(), notification)
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /**
+     * 「寄った」記録の完了確認（SPOT-04-S01-T02）。元の近接通知と同じ[notificationId]で
+     * 通知シェードを更新し、積み増さない。「取り消す」アクションで、AC「誤操作を取り消せる」
+     * を満たす（一覧からの削除・修正はSPOT-04-S02のスコープ）。
+     */
+    fun notifyVisitRecorded(context: Context, notificationId: Int, spotTitle: String, recordId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val undoIntent = Intent(context, VisitActionReceiver::class.java).apply {
+            action = VisitActionReceiver.ACTION_UNDO_VISIT
+            putExtra(VisitActionReceiver.EXTRA_RECORD_ID, recordId)
+            putExtra(VisitActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        val undoPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            undoIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_flag_pin)
+            .setContentTitle(VISIT_RECORDED_TITLE)
+            .setContentText("$spotTitle に「寄った」を記録しました")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setAutoCancel(true)
+            .addAction(R.drawable.ic_flag_pin, UNDO_ACTION_LABEL, undoPendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /** 「取り消す」アクション自身の通知を消す。取り消し後に確認通知を残さないため。 */
+    fun cancelVisitConfirmation(context: Context, notificationId: Int) {
+        if (notificationId == -1) return
+        NotificationManagerCompat.from(context).cancel(notificationId)
     }
 
     /**

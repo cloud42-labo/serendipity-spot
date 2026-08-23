@@ -19,8 +19,8 @@ android {
         applicationId = "com.cloud42labo.serendipityspot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "1.4.1"
+        versionCode = 39
+        versionName = "1.5.0"
 
         manifestPlaceholders["mapsApiKey"] =
             (localProperties.getProperty("MAPS_API_KEY") ?: "").ifBlank { "MISSING_MAPS_API_KEY" }
@@ -129,5 +129,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
 
     testImplementation("junit:junit:4.13.2")
+    // ユニットテスト用クラスパスではandroid.jarのorg.jsonはスタブ（呼ぶと例外）のため、
+    // Spot/VisitRecordのtoJson()/fromJson()系をJVM単体テストで動かすには実装が要る
+    // （SPOT-04-S01-T01、VisitRecordTestで初めてorg.jsonに依存するテストを追加した際に判明）。
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
