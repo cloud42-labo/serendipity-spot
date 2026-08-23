@@ -16,6 +16,8 @@
     <application
         android:name=".SerendipityApp"
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.SerendipitySpot"
@@ -45,6 +47,12 @@
 
         <receiver
             android:name=".location.GeofenceBroadcastReceiver"
+            android:exported="false" />
+
+        <!-- 通知アクション（「寄った」「取り消す」）専用。システムからの明示的な
+             ブロードキャストのみ受け取ればよいため非公開（SPOT-04-S01-T02）。 -->
+        <receiver
+            android:name=".location.VisitActionReceiver"
             android:exported="false" />
 
         <receiver

@@ -24,6 +24,7 @@ object SpotLocalCache {
     private const val KEY_ALLOWED_DAYS = "notif_allowed_days"
     private const val KEY_START_MINUTE = "notif_start_minute"
     private const val KEY_END_MINUTE = "notif_end_minute"
+    private const val KEY_VISIT_LOG = "visit_log_json"
 
     fun save(context: Context, spots: List<Spot>) {
         prefs(context).edit().putString(KEY_SPOTS, spots.toJson()).apply()
@@ -106,6 +107,43 @@ object SpotLocalCache {
             .mapNotNull { it.trim().toIntOrNull() }
             .toSet()
     }
+
+    // --- 通知の「寄った」アクションから記録する立ち寄り履歴（Serendipity Log、SPOT-04-S01）。
+    //     重複判定・追加・削除の判定ロジック自体はVisitLogPolicy（Contextに依存しない
+    //     純粋関数）に切り出し、ここではSharedPreferencesの読み書きだけを担う。
+
+    fun loadVisitLog(context: Context): List<VisitRecord> {
+        val json = prefs(context).getString(KEY_VISIT_LOG, null) ?: return emptyList()
+        return runCatching { json.toVisitRecordList() }.getOrDefault(emptyList())
+    }
+
+    private fun saveVisitLog(context: Context, records: List<VisitRecord>) {
+        prefs(context).edit().putString(KEY_VISIT_LOG, records.toJson()).apply()
+    }
+
+    /**
+     * 通知の「寄った」アクションから呼ぶ。直近の重複記録があればそれをそのまま返し、
+     * 無ければ新規記録を追加して返す（[VisitLogPolicy.addVisitRecord]参照）。
+     */
+    fun addVisitRecord(
+        context: Context,
+        spotId: String,
+        spotTitle: String,
+        at: Long = System.currentTimeMillis(),
+    ): VisitLogPolicy.AddVisitResult {
+        val result = VisitLogPolicy.addVisitRecord(loadVisitLog(context), spotId, spotTitle, at)
+        if (!result.wasDuplicate) saveVisitLog(context, result.records)
+        return result
+    }
+
+    /** 誤操作の取り消し・履歴からの削除（通知の「取り消す」アクション）。 */
+    fun removeVisitRecord(context: Context, recordId: String) {
+        saveVisitLog(context, VisitLogPolicy.removeVisitRecord(loadVisitLog(context), recordId))
+    }
+
+    /** ジオフェンスのDWELL再通知抑止に使う（[VisitLogPolicy.hasRecentVisitRecord]参照）。 */
+    fun hasRecentVisitRecord(context: Context, spotId: String, at: Long, withinMs: Long): Boolean =
+        VisitLogPolicy.hasRecentVisitRecord(loadVisitLog(context), spotId, at, withinMs)
 
     // --- 以下は診断用。通知が来ないときに「登録できているか」「イベントが届いているか」を
     //     切り分けるためだけのもの。アプリの動作そのものには影響しない。

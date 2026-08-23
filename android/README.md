@@ -178,6 +178,11 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 この設定を入れたクラウドセッションでのビルド、および Windows + Android Studio での
 実機ビルドは確認済み。
 
+## Google Play 一般公開への準備
+
+[google-play-release-checklist.md](google-play-release-checklist.md) 参照
+（`SPOT-06-S01`、進行中）。
+
 ## PCなしで最新版を端末に入れる（GitHub Actions）
 
 外出先など、PCが手元に無い状態で修正を試したいとき用。`main` に変更が入るたびに
@@ -293,3 +298,7 @@ keytool -genkeypair -v -keystore release.keystore -alias serendipity-spot \
 - スプレッドシート名は固定で `Serendipity Spot`。再インストール後もGoogleアカウントに
   紐づく形でこのファイルを探しにいくので、同じシートを使い続けられる
 - シートの列: `id | lat | lng | title | memo | radiusMeters | createdAt`
+- **立ち寄り履歴**（通知の「寄った」で記録、`SPOT-04-S01`）は上記スプレッドシートとは
+  別で、**端末内のSharedPreferencesにのみ保存**される。Googleドライブへは送信されない。
+  通知の「取り消す」で個別に削除できるほか、端末設定の「データを消去」またはアンインストール
+  で全件消える。一覧表示・編集UIは`SPOT-04-S02`（未実装）のスコープ

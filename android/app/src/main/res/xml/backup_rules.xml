@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 6.0〜11（API 23〜30）向けのクラウドバックアップ除外ルール。
+  API 31以降は data_extraction_rules.xml が使われる。
+
+  SpotLocalCache（serendipity_spot_cache）は「スプレッドシートの内容をローカルに
+  1部だけキャッシュする...これは復元用のキャッシュにすぎない」（SpotLocalCache.ktの
+  ドキュメントコメント参照）ため、正はあくまでGoogleドライブ側にある。それにも
+  かかわらず allowBackup="true" のまま除外設定が無いと、登録スポット（緯度経度・
+  施設名・メモ）や立ち寄り履歴（SPOT-04-S01で追加）といった位置情報関連のデータが
+  Android Auto Backup経由でGoogleドライブへアップロードされ、別端末へ復元されうる。
+  プライバシーポリシーの「位置情報は端末上でのみ使われ、どこにも送信されません」
+  という記載と矛盾するため除外する（Codexレビュー指摘、SPOT-04-S01のPR #25）。
+
+  serendipity_spot_auth（GoogleAuthManager.cacheUser、メールアドレス・表示名）も
+  同じ理由で除外する。ここを除外しないと、アンインストール後に再インストールした際
+  Android Auto Backupから復元され、プライバシーポリシー「データの削除」の
+  「アンインストールでサインイン情報が削除される」という説明と食い違う
+  （Codexレビュー指摘、SPOT-04-S01のPR #25、2回目のレビュー）。
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="serendipity_spot_cache.xml" />
+    <exclude domain="sharedpref" path="serendipity_spot_auth.xml" />
+</full-backup-content>

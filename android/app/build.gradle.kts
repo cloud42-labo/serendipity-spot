@@ -13,14 +13,14 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.cloud42labo.serendipityspot"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.cloud42labo.serendipityspot"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 38
-        versionName = "1.4.1"
+        targetSdk = 36
+        versionCode = 40
+        versionName = "1.5.1"
 
         manifestPlaceholders["mapsApiKey"] =
             (localProperties.getProperty("MAPS_API_KEY") ?: "").ifBlank { "MISSING_MAPS_API_KEY" }
@@ -35,8 +35,11 @@ android {
     }
 
     signingConfigs {
-        // RELEASE_STORE_FILE が無い間は release ビルドも自動デバッグ署名のまま。
-        // 秘密鍵はこのプロジェクトのコードには一切含めない。
+        // RELEASE_STORE_FILE が無い間は、下のbuildTypes.releaseでsigningConfigが
+        // 一切設定されないため、releaseビルドは（debug署名ではなく）**未署名**の
+        // APK/AABになる（`app-release-unsigned.apk`という実際のファイル名で確認済み。
+        // Codexレビュー指摘、SPOT-06-S01のPR #25）。秘密鍵はこのプロジェクトの
+        // コードには一切含めない。
         create("release") {
             val storeFilePath = localProperties.getProperty("RELEASE_STORE_FILE")
             if (!storeFilePath.isNullOrBlank()) {
@@ -129,5 +132,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
 
     testImplementation("junit:junit:4.13.2")
+    // ユニットテスト用クラスパスではandroid.jarのorg.jsonはスタブ（呼ぶと例外）のため、
+    // Spot/VisitRecordのtoJson()/fromJson()系をJVM単体テストで動かすには実装が要る
+    // （SPOT-04-S01-T01、VisitRecordTestで初めてorg.jsonに依存するテストを追加した際に判明）。
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
