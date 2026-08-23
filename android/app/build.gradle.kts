@@ -13,14 +13,14 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.cloud42labo.serendipityspot"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.cloud42labo.serendipityspot"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 39
-        versionName = "1.5.0"
+        targetSdk = 36
+        versionCode = 40
+        versionName = "1.5.1"
 
         manifestPlaceholders["mapsApiKey"] =
             (localProperties.getProperty("MAPS_API_KEY") ?: "").ifBlank { "MISSING_MAPS_API_KEY" }

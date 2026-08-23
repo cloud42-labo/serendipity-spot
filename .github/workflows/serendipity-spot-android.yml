@@ -66,7 +66,10 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+          # compileSdk/targetSdk=36（SPOT-06-S01、Google Playの2026-08-31 target API要件）。
+          # build-tools は35.0.0のままでcompileSdk=36のビルドに支障なし（AGP 8.7.2でも
+          # ローカル実測済み）なので上げていない。
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-35" "build-tools;35.0.0" > /dev/null
 
       - name: Restore debug keystore
         env:

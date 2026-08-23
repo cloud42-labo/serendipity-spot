@@ -178,6 +178,11 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 この設定を入れたクラウドセッションでのビルド、および Windows + Android Studio での
 実機ビルドは確認済み。
 
+## Google Play 一般公開への準備
+
+[google-play-release-checklist.md](google-play-release-checklist.md) 参照
+（`SPOT-06-S01`、進行中）。
+
 ## PCなしで最新版を端末に入れる（GitHub Actions）
 
 外出先など、PCが手元に無い状態で修正を試したいとき用。`main` に変更が入るたびに
