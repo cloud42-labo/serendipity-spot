@@ -35,8 +35,11 @@ android {
     }
 
     signingConfigs {
-        // RELEASE_STORE_FILE が無い間は release ビルドも自動デバッグ署名のまま。
-        // 秘密鍵はこのプロジェクトのコードには一切含めない。
+        // RELEASE_STORE_FILE が無い間は、下のbuildTypes.releaseでsigningConfigが
+        // 一切設定されないため、releaseビルドは（debug署名ではなく）**未署名**の
+        // APK/AABになる（`app-release-unsigned.apk`という実際のファイル名で確認済み。
+        // Codexレビュー指摘、SPOT-06-S01のPR #25）。秘密鍵はこのプロジェクトの
+        // コードには一切含めない。
         create("release") {
             val storeFilePath = localProperties.getProperty("RELEASE_STORE_FILE")
             if (!storeFilePath.isNullOrBlank()) {
