@@ -5,11 +5,18 @@ name: PR check
 # 既存の serendipity-spot-android.yml は `push: branches: [main]` でしか動かない。
 # つまりマージ前のPRにはCIの結果が1つも付かず、「CI greenを確認してからマージする」
 # という運用が実際には確認できない状態だった。ここではPRに対してだけ動く軽い検証を
-# 足す（APKの配布・リリース・タグ付けは一切しない。それらは従来どおり main への
+# 足す（リリースへの公開・タグ付けは一切しない。それらは従来どおり main への
 # push 時のワークフローの役目）。
 #
-# 署名鍵は使わない。ここで見たいのは「コンパイルが通るか」「ユニットテストが通るか」
-# だけで、配布物は作らないため。AGPが自動生成するデバッグ鍵で十分。
+# release署名鍵は使わない。ここで見たいのは「コンパイルが通るか」「ユニットテストが
+# 通るか」であり、Play向けの正式配布物は作らないため。
+#
+# 一方でdebug署名は、SERENDIPITY_DEBUG_KEYSTORE_BASE64が設定されていれば
+# serendipity-spot-android.yml（mainのdevビルド）と同じ鍵を使う。実機で「既存の
+# devビルドの上から上書き更新できるか」をPRの時点で確認できるようにするため
+# （署名が異なる＝Androidは別アプリ扱いになり、上書きインストールできない）。
+# 未設定ならAGPがその場限りの鍵を生成し、コンパイル確認はできるが上書き更新の
+# 検証はできない（後続のUpload debug APK artifactでその旨を明示する）。
 
 on:
   pull_request:
@@ -28,6 +35,10 @@ defaults:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # serendipity-spot-android.yml と同じ理由（$HOME/.androidだとAGPに無視される
+      # ランナーがある）で、debug鍵の置き場所を明示的に固定する。
+      ANDROID_USER_HOME: ${{ github.workspace }}/.android
     steps:
       - uses: actions/checkout@v4
 
@@ -43,15 +54,29 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" > /dev/null
 
+      - name: Restore debug keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SERENDIPITY_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::SERENDIPITY_DEBUG_KEYSTORE_BASE64 が未設定。AGPがその場限りのdebug鍵を生成するため、このAPKは既存のdevビルドへ上書きインストールできない。"
+          else
+            mkdir -p "$ANDROID_USER_HOME"
+            echo "$KEYSTORE_BASE64" | base64 -d > "$ANDROID_USER_HOME/debug.keystore"
+          fi
+
       - name: Write local.properties
-        # 秘密情報はPRの検証では使わない。地図キーが空でもビルドは通る
-        # （実行時に地図が灰色になるだけで、コンパイル・テストには影響しない）。
+        # release鍵は使わない。地図キーやサインインのクライアントIDが空でもビルドは
+        # 通る（実行時に地図が灰色になる・サインインが失敗するだけで、コンパイル・
+        # テストには影響しない）が、実機での動作確認に使うAPKなので設定できるものは
+        # 本番と同じ値を使う。
         env:
           MAPS_API_KEY: ${{ secrets.SERENDIPITY_MAPS_API_KEY }}
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.SERENDIPITY_GOOGLE_SERVER_CLIENT_ID }}
         run: |
           {
             echo "MAPS_API_KEY=${MAPS_API_KEY}"
-            echo "GOOGLE_SERVER_CLIENT_ID="
+            echo "GOOGLE_SERVER_CLIENT_ID=${GOOGLE_SERVER_CLIENT_ID}"
           } > local.properties
 
       - name: Run unit tests
@@ -67,3 +92,14 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload debug APK artifact
+        # Humanが実機確認のためにActionsの成果物から直接ダウンロードできるようにする。
+        # secrets自体は成果物に含まれない（アプリのビルド設定値が埋め込まれるのみで、
+        # これは通常の配布ビルドと同じ)。
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-debug-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
