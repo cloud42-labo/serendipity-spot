@@ -183,6 +183,7 @@ class MainActivity : ComponentActivity() {
                                 onSharedPlaceConsumed = viewModel::consumeSharedPlace,
                                 onErrorMessageShown = viewModel::consumeErrorMessage,
                                 onRefreshVisitLog = viewModel::refreshVisitLog,
+                                onDeleteVisitRecord = viewModel::deleteVisitRecord,
                             )
 
                             if (permissionsChecked && !hasForegroundLocation) {

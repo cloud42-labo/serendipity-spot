@@ -164,6 +164,18 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 誤って記録した履歴を1件削除する（SPOT-04-S02-T02）。[VisitRecord]は書き換え可能な
+     * 内容を持たないため、「修正」は「削除して必要なら記録し直す」の1本に集約している
+     * （[SerendipityLogScreen]のクラスコメント参照）。通知の「取り消す」と同じ
+     * [SpotLocalCache.removeVisitRecord]を呼ぶだけで、対象spotが現存するかは問わない
+     * （スポット本体削除後の記録も削除できる必要があるため）。
+     */
+    fun deleteVisitRecord(recordId: String) {
+        SpotLocalCache.removeVisitRecord(getApplication(), recordId)
+        refreshVisitLog()
+    }
+
+    /**
      * 再通知クールダウン・通知可能時間帯の設定を保存する（SPOT-03-S02）。
      * 保存した値は次回のジオフェンスイベントから[GeofenceBroadcastReceiver]が使う。
      */

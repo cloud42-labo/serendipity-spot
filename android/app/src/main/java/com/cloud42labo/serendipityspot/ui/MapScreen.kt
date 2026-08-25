@@ -120,6 +120,7 @@ fun MapScreen(
     onSharedPlaceConsumed: () -> Unit,
     onErrorMessageShown: () -> Unit,
     onRefreshVisitLog: () -> Unit,
+    onDeleteVisitRecord: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -163,6 +164,7 @@ fun MapScreen(
             visitLog = uiState.visitLog,
             spots = uiState.spots,
             onBack = { showVisitLog = false },
+            onDeleteRecord = onDeleteVisitRecord,
         )
         return
     }
