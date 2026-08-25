@@ -182,6 +182,7 @@ class MainActivity : ComponentActivity() {
                                 onRegistrationConfirmationShown = viewModel::consumeRegistrationConfirmation,
                                 onSharedPlaceConsumed = viewModel::consumeSharedPlace,
                                 onErrorMessageShown = viewModel::consumeErrorMessage,
+                                onRefreshVisitLog = viewModel::refreshVisitLog,
                             )
 
                             if (permissionsChecked && !hasForegroundLocation) {

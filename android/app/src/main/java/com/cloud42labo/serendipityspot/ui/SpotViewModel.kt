@@ -20,6 +20,7 @@ import com.cloud42labo.serendipityspot.data.SheetsRepository
 import com.cloud42labo.serendipityspot.data.SpotLocalCache
 import com.cloud42labo.serendipityspot.notification.NotificationHelper
 import com.cloud42labo.serendipityspot.data.Spot
+import com.cloud42labo.serendipityspot.data.VisitRecord
 import com.cloud42labo.serendipityspot.location.GeofenceHelper
 import com.cloud42labo.serendipityspot.share.SharedPlace
 import com.cloud42labo.serendipityspot.share.ShareTextParser
@@ -45,6 +46,10 @@ data class SpotUiState(
     // 通知が来ないときの切り分け用。アプリの動作には影響しない。
     val lastRegistration: String? = null,
     val lastGeofenceEvent: String? = null,
+    // 通知の「寄った」アクションから記録した立ち寄り履歴（Serendipity Log、SPOT-04-S02）。
+    // 正はSpotLocalCache（端末ローカル）。refreshVisitLog()で読み直すまでは古いまま
+    // （lastRegistration/lastGeofenceEventと同じ「診断用に読み直す」パターン）。
+    val visitLog: List<VisitRecord> = emptyList(),
     // 再通知クールダウン・通知可能時間帯の設定（SPOT-03-S02）。
     val notificationPreferences: NotificationPreferences = NotificationPreferences(),
     val searchResults: List<PlaceResult> = emptyList(),
@@ -145,6 +150,17 @@ class SpotViewModel(application: Application) : AndroidViewModel(application) {
                 lastGeofenceEvent = SpotLocalCache.loadLastGeofenceEvent(app),
             )
         }
+        refreshVisitLog()
+    }
+
+    /**
+     * Serendipity Log（立ち寄り履歴）を SharedPreferences から読み直す（SPOT-04-S02-T01）。
+     * 通知の「寄った」アクションは[com.cloud42labo.serendipityspot.location.VisitActionReceiver]から
+     * ViewModelを介さず直接[SpotLocalCache]へ書くため、履歴画面を開く直前にも呼び直して
+     * 最新化する（[refreshDiagnostics]と同じ「読み直すだけ」のパターン）。
+     */
+    fun refreshVisitLog() {
+        _uiState.update { it.copy(visitLog = SpotLocalCache.loadVisitLog(getApplication())) }
     }
 
     /**
