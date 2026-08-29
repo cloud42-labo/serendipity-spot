@@ -7,15 +7,27 @@
 
 | ファイル | サイズ | 用途 |
 | :--- | :--- | :--- |
-| [`icon-512.png`](icon-512.png) | 512×512, 24-bit PNG（アルファなし） | Play Console ストアアイコン |
+| [`icon-512.png`](icon-512.png) | 512×512, 32-bit PNG（RGBA、アルファチャンネル付き） | Play Console ストアアイコン |
 | [`feature-graphic-1024x500.png`](feature-graphic-1024x500.png) | 1024×500, 24-bit PNG | フィーチャーグラフィック |
 
-生成方法: `assets-source/ic_launcher_source.png`（2048×2048、既に角丸スクエアの絵柄が
-描かれた完成品）をそのまま縮小しただけ。**アダプティブアイコンのマスク処理は経由していない**
-（ランチャーアイコンではなくストア掲載用の平面画像のため、
-[brain/notes/android-adaptive-icon-pitfalls](https://github.com/cloud42-labo/brain/blob/main/notes/android-adaptive-icon-pitfalls.md)
-で踏んだ「中央72dpだけが見える」問題は対象外）。フィーチャーグラフィックはアイコンの
-配色（紫→青のグラデーション）を引き継いだ背景に、アイコンとアプリ名・タグラインを配置した。
+生成方法（PR #28へのCodexレビュー指摘2件を反映済み）:
+
+- **`icon-512.png`**: `assets-source/ic_launcher_source.png`（2048×2048、角丸スクエアの
+  絵柄が既に描かれた完成品）は絵柄自体に角丸の余白（白）が焼き込まれているため、単純に
+  縮小するとPlay側のマスクと二重に丸まる／白い縁が出る問題があった（Codexレビュー
+  指摘・P2）。四辺から120pxずつ（コーナーの丸め半径〜305pxの内側に収まる量）を
+  クロップしてフルブリードの正方形にしてから512×512へリサイズしている。**アダプティブ
+  アイコンのマスク処理は経由していない**（ランチャーアイコンではなくストア掲載用の
+  平面画像のため、
+  [brain/notes/android-adaptive-icon-pitfalls](https://github.com/cloud42-labo/brain/blob/main/notes/android-adaptive-icon-pitfalls.md)
+  で踏んだ「中央72dpだけが見える」問題そのものは対象外）。また24-bit（アルファ無し）で
+  書き出していたためPlay Consoleのストアアイコン要件（32-bit・アルファチャンネル付き）を
+  満たしていなかった（Codexレビュー指摘・P1）。RGBA（不透明・alpha=255）で再書き出しした。
+- **`feature-graphic-1024x500.png`**: アイコンの配色（紫→青のグラデーション）を引き継いだ
+  背景に、アイコンとアプリ名・タグラインを配置した。バナー内のアイコン部分に丸角＋影を
+  つけているのは意図した装飾（ストアアイコンとは別レイヤーの合成）であり、上記の
+  ストアアイコン自体の問題とは無関係。24-bit PNG（アルファなし）はフィーチャーグラフィック
+  の仕様として正しい。
 
 ## 揃っていないもの: スクリーンショット
 
