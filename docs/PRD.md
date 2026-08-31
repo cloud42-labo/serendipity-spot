@@ -27,12 +27,16 @@
 ## 3. Functional Requirements
 
 - 地図タップ／中心「＋」でのスポット登録（Google Maps SDK for Android）。
+- Googleマップ等からの共有（`ACTION_SEND`）を受け取り、共有テキストを解析して
+  登録・検索フローへつなぐ（`share/`パッケージ、v1.2.0で導入）。
 - Geofencing APIによるバックグラウンド近接通知（150m、ENTER遷移＋DWELL再通知）。
 - Googleアカウントでのサインイン（Credential Manager）と、利用者自身の
   Googleドライブ上のスプレッドシートへの保存・読み込み（自動作成含む）。
 - 住所・施設名検索（Android標準`Geocoder`）。
 - スポットの一覧・編集・削除、ストリートビュー導線（外部Googleマップアプリ）。
-- 通知からの「寄った」記録・立ち寄り履歴の一覧・修正・削除（Serendipity Log）。
+- 通知からの「寄った」記録と一覧表示（Serendipity Log、`SPOT-04-S02-T01`実装済み）。
+  **記録済みの立ち寄り履歴の修正・削除・空状態UIは未実装**（`SPOT-04-S02-T02`、
+  Backlog）。現状できるのは記録・一覧表示・通知からの取り消しのみ。
 - PCなしでの最新版配布（GitHub Actionsによる`dev`/`latest`APKタグ配布）。
 
 ## 4. Non-functional Requirements
@@ -69,7 +73,10 @@
 ## 7. Non-goals / Out of Scope
 
 - 目的地ナビ・本格的なルート案内（Directions APIは通知タップ時の参考表示のみ）。
-- SNS・共有・レビュー機能。
+- **アプリ外への共有・投稿（アウトバウンド/ソーシャル共有）やレビュー機能。**
+  Googleマップ等からの共有を**受け取って登録する**フロー（`ACTION_SEND`受信）は
+  既に実装済みのため対象外ではない——ここで対象外とするのは、他人との共同編集や
+  SNSへの投稿など、アウトバウンド方向の共有機能。
 - 複数人での共同編集・チーム利用（現状は個人のGoogleドライブ内で完結）。
 - 位置履歴の蓄積・分析（Geofencingイベントのみを使い、常時トラッキングはしない）。
 

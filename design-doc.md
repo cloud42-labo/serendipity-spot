@@ -12,18 +12,23 @@
 
 ## 2. UX / Core Loop
 
-1. 地図タップ、または中心「＋」でスポットを登録する（旗アイコン。登録済みは
-   濃い旗、検索候補は薄い「まだ立っていない旗」）。
+1. 地図タップ、中心「＋」、または**Googleマップ等アプリ外からの共有
+   （`ACTION_SEND`）** でスポットを登録する（旗アイコン。登録済みは濃い旗、
+   検索候補は薄い「まだ立っていない旗」）。
 2. アプリを閉じても、Geofencing APIがバックグラウンドで監視を続ける。
 3. 登録スポットの半径150m以内に**外から入る**と通知＋バイブで知らせる
    （同一スポット3時間クールダウン、DWELL遷移で2分後に1回だけ再通知）。
-4. 通知から「寄った」を選ぶと立ち寄り履歴（Serendipity Log）に記録される。
-5. 下部シートで一覧・編集・削除、ストリートビュー確認ができる。
+4. 通知から「寄った」を選ぶと立ち寄り履歴（Serendipity Log）に記録され、
+   一覧表示できる（記録済み履歴自体の修正・削除UIは未実装、後述）。
+5. 下部シートでスポットの一覧・編集・削除、ストリートビュー確認ができる。
 
 ## 3. Architecture
 
 - Kotlin + Jetpack Compose のネイティブAndroidアプリ（`android/`単一モジュール）。
 - 地図: Google Maps SDK for Android。検索: Android標準`Geocoder`。
+- 共有受信: `ACTION_SEND`を`MainActivity`で受け、`share/`パッケージ
+  （`ShareIntentReader`・`ShareTextParser`等）が共有テキストを解析して
+  登録・検索フローへつなぐ（v1.2.0で導入）。
 - 位置監視: Geofencing API（OSのバッチ処理、アプリ側の常駐プロセス不要）。
 - 認証: Credential Manager（Sign in with Google）でサインインし、
   `AuthorizationClient`でDrive/Sheetsアクセス用スコープを別途取得する
