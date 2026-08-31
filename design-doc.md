@@ -18,8 +18,9 @@
 2. アプリを閉じても、Geofencing APIがバックグラウンドで監視を続ける。
 3. 登録スポットの半径150m以内に**外から入る**と通知＋バイブで知らせる
    （同一スポット3時間クールダウン、DWELL遷移で2分後に1回だけ再通知）。
-4. 通知から「寄った」を選ぶと立ち寄り履歴（Serendipity Log）に記録され、
-   一覧表示できる（記録済み履歴自体の修正・削除UIは未実装、後述）。
+4. 通知から「寄った」を選ぶと立ち寄り履歴（Serendipity Log）に記録される。
+   一覧画面で新しい順に表示し、削除・空状態表示もできる（内容を書き換える
+   編集機能は無く、訂正は削除して再記録する1本のみ）。
 5. 下部シートでスポットの一覧・編集・削除、ストリートビュー確認ができる。
 
 ## 3. Architecture
@@ -36,8 +37,9 @@
 - 通知タップ時の徒歩ルート表示にDirections API（Web Service、Maps用APIキーを
   流用し`X-Android-Package`/`X-Android-Cert`ヘッダーで制限）。
 - 主要画面: `MapScreen`（Composable単位に分割済み）、選択スポット情報カード
-  `SelectedSpotCard`、一覧・カード用の共通部品 `AppCard` `AppTextField`
-  `SpotActionIcons`（`Product Feel v1.1`で導入）。
+  `SelectedSpotCard`、`SerendipityLogScreen`（立ち寄り履歴一覧・削除・空状態、
+  `SPOT-04-S02-T01`・`T02`で追加）、一覧・カード用の共通部品 `AppCard`
+  `AppTextField` `SpotActionIcons`（`Product Feel v1.1`で導入）。
 - CI: `.github/workflows/serendipity-spot-android.yml`が`main`更新のたびに
   APKをビルドし`dev`（debug署名）/`latest`（release署名）タグへ貼り直す。
   `versionName`変更時は`v<versionName>`の固定リリースも作成する。
@@ -93,6 +95,6 @@
 ## 8. Current Specification / Source of Truth
 
 実際の現在仕様は稼働コード（`android/`）と`android/app/build.gradle.kts`の
-`versionName`（本バックフィル時点で`1.5.1`）が正本。セットアップ・ビルド・
+`versionName`（本バックフィル時点で`1.6.0`）が正本。セットアップ・ビルド・
 配布手順の詳細は[android/README.md](android/README.md)。運用ルールは
 [CLAUDE.md](CLAUDE.md)。
