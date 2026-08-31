@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
@@ -118,6 +120,8 @@ fun MapScreen(
     onRegistrationConfirmationShown: () -> Unit,
     onSharedPlaceConsumed: () -> Unit,
     onErrorMessageShown: () -> Unit,
+    onRefreshVisitLog: () -> Unit,
+    onDeleteVisitRecord: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -136,6 +140,9 @@ fun MapScreen(
     var editingSpot by remember { mutableStateOf<Spot?>(null) }
     var searchMode by rememberSaveable { mutableStateOf(false) }
     var resultListVisible by rememberSaveable { mutableStateOf(false) }
+    // Serendipity Log（立ち寄り履歴、SPOT-04-S02-T01）。他のオーバーレイ（検索・編集・削除）と
+    // 同じく地図の上に別画面として重ねるのではなく、ここでは丸ごと差し替える最小実装。
+    var showVisitLog by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var deletingSpot by remember { mutableStateOf<Spot?>(null) }
     var selectedSpotId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -149,6 +156,26 @@ fun MapScreen(
     // 後続の LaunchedEffect（共有取り込み）から参照できるよう、ここへ引き上げている。
     // 値の意味は変えていない（下の signedIn 使用箇所と同じ）。
     val signedIn = uiState.user != null
+
+    // showVisitLogはrememberSaveableのため、プロセス強制終了後の復元でもtrueのまま
+    // 戻りうる。その場合ツールバーのクリックハンドラは実行されないため、ここで
+    // 「この画面が表示されるたびに」読み直す（Codexレビュー指摘、PR #27）。
+    // 通常のクリックで開く経路もこれ1本に統一し、二重の読み直しを避ける。
+    BackHandler(enabled = showVisitLog) { showVisitLog = false }
+
+    // Serendipity Log は地図画面を丸ごと差し替える別画面として表示する（SPOT-04-S02-T01）。
+    // 検索・共有取り込み等、地図画面向けのLaunchedEffectより前でreturnし、履歴表示中は
+    // それらを動かさない（ユーザーが明示的に開いた別画面という位置づけのため）。
+    if (showVisitLog) {
+        LaunchedEffect(Unit) { onRefreshVisitLog() }
+        SerendipityLogScreen(
+            visitLog = uiState.visitLog,
+            spots = uiState.spots,
+            onBack = { showVisitLog = false },
+            onDeleteRecord = onDeleteVisitRecord,
+        )
+        return
+    }
 
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission || initialLocationApplied) return@LaunchedEffect
@@ -338,6 +365,9 @@ fun MapScreen(
                     } else {
                         IconButton(onClick = { searchMode = true }) {
                             Icon(Icons.Filled.Search, contentDescription = "場所を検索")
+                        }
+                        IconButton(onClick = { showVisitLog = true }) {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "立ち寄り履歴（Serendipity Log）")
                         }
                         if (signedIn) {
                             // 標準のTextButtonはcontentPaddingが広く、フォントサイズ
