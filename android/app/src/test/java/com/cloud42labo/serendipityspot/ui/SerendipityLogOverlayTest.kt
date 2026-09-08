@@ -1,6 +1,9 @@
 package com.cloud42labo.serendipityspot.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.cloud42labo.serendipityspot.data.Spot
@@ -108,6 +111,50 @@ class SerendipityLogOverlayTest {
         composeTestRule.waitForIdle()
 
         assertEquals(0, shownCount)
+    }
+
+    @Test
+    fun `closing and reopening the overlay fires onShown a second time, and the newly refreshed visitLog is what's rendered`() {
+        // Codex-reported gap: an earlier version of this test mounted the screen
+        // continuously and mutated visitLog mid-composition, so it never actually
+        // closed/reopened the overlay and would still pass even if reopening stopped
+        // calling onShown. This drives the real contract: MapScreen toggles `visible`
+        // off (system Back / onDismiss) and back on, and only the *second* onShown
+        // call is expected to have delivered the caller's freshly reloaded visitLog —
+        // exactly "画面再表示時の再読込" (AC④).
+        var shownCount = 0
+        var visible by mutableStateOf(true)
+        var visitLog by mutableStateOf(listOf(visit))
+        composeTestRule.setContent {
+            SerendipityLogOverlay(
+                visible = visible,
+                visitLog = visitLog,
+                spots = listOf(spot),
+                onDismiss = { visible = false },
+                onDeleteRecord = {},
+                onShown = { shownCount++ },
+            )
+        }
+        composeTestRule.waitForIdle()
+        assertEquals(1, shownCount)
+        composeTestRule.onNodeWithText("カフェ").assertExists()
+
+        // Close, exactly as a system Back would (see the onDismiss tests above).
+        visible = false
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Serendipity Log").assertDoesNotExist()
+
+        // While closed, the caller (MapScreen's SpotViewModel) records a new visit —
+        // this is the state a real reopen would find "freshly loaded".
+        val newVisit = VisitRecord(id = "visit-2", spotId = "spot-1", spotTitle = "カフェ", recordedAt = 1_700_000_100_000L)
+        visitLog = listOf(visit, newVisit)
+
+        // Reopen.
+        visible = true
+        composeTestRule.waitForIdle()
+
+        assertEquals("reopening must trigger a second onShown, not merely reuse the first", 2, shownCount)
+        composeTestRule.onNodeWithText("Serendipity Log").assertExists()
     }
 
     @Test

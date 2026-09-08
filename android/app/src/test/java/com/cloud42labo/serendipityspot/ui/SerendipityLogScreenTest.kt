@@ -1,6 +1,5 @@
 package com.cloud42labo.serendipityspot.ui
 
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,9 +23,13 @@ import java.util.Locale
 
 /**
  * SPOT-04-S02-T03: Serendipity Log一覧画面の①表示内容、②削除確認と削除後反映、
- * ③空状態、④画面再表示時の再読込をRobolectric（JVM上、emulator不要）で固定する。
- * ⑤システムBackで地図へ復帰する検証は[SerendipityLogOverlayTest]の担当
- * （このComposable自体はBack処理を持たず、呼び出し側[SerendipityLogOverlay]が持つため）。
+ * ③空状態をRobolectric（JVM上、emulator不要）で固定する。
+ * ④画面再表示時の再読込・⑤システムBackで地図へ復帰する検証は両方とも
+ * [SerendipityLogOverlayTest]の担当（このComposable自体はBack処理も再読込トリガー
+ * （`onShown`）も持たず、呼び出し側[SerendipityLogOverlay]が持つため。④はこの画面を
+ * 継続的にマウントしたまま`visitLog`だけ差し替えても検証にならない — 実際に
+ * `visible`をfalse→trueへ往復させ、2回目の`onShown`が新しいデータを届けることまで
+ * 確認する必要があり、それは[SerendipityLogOverlay]レベルでしか意味を持たない）。
  *
  * Approach Decision（2026-09-06）どおり、実端末デモではなくソフトウェア挙動を
  * 決定的に確認する自動E2Eとして書く。物理端末での見え方はmerge後のAcceptanceで別途。
@@ -112,8 +115,13 @@ class SerendipityLogScreenTest {
             )
         }
 
-        composeTestRule.onNodeWithText("カフェ").assertExists()
-        composeTestRule.onNodeWithText("公園").assertExists()
+        // 存在チェックだけでは`sortedByDescending`を外しても通ってしまう
+        // （Codexレビュー指摘）。parkVisitの方がrecordedAtが新しいため、
+        // 新しい順であれば「公園」が「カフェ」より上（boundsInRoot.topが小さい）に
+        // 描画されるはずであることまで確認する。
+        val parkTop = composeTestRule.onNodeWithText("公園").fetchSemanticsNode().boundsInRoot.top
+        val cafeTop = composeTestRule.onNodeWithText("カフェ").fetchSemanticsNode().boundsInRoot.top
+        assertTrue("newest (公園) must render above older (カフェ)", parkTop < cafeTop)
     }
 
     // --- ②削除確認と削除後反映 -------------------------------------------------------
@@ -240,29 +248,6 @@ class SerendipityLogScreenTest {
         composeTestRule.onNodeWithText("削除").performClick()
 
         composeTestRule.onNodeWithText("まだ記録がありません").assertExists()
-    }
-
-    // --- ④画面再表示時の再読込 --------------------------------------------------------
-
-    @Test
-    fun `reopening with a freshly loaded visitLog shows records added since the screen was last shown`() {
-        // 「画面再表示時の再読込」は呼び出し側（onRefreshVisitLog）がvisitLogを最新化する
-        // 契約になっており、この画面自体は渡されたvisitLogをそのまま描画する。ここでは
-        // 「新しいvisitLogを渡されたら反映される」ことを再コンポーズで確認する。
-        composeTestRule.setContent {
-            var visitLog by remember { mutableStateOf(listOf(cafeVisit)) }
-            SerendipityLogScreen(
-                visitLog = visitLog,
-                spots = listOf(cafeSpot, parkSpot),
-                onBack = {},
-                onDeleteRecord = {},
-            )
-            // 裏で新しい記録が1件増えた状態を模倣する。
-            LaunchedEffect(Unit) { visitLog = listOf(cafeVisit, parkVisit) }
-        }
-
-        composeTestRule.onNodeWithText("公園").assertExists()
-        composeTestRule.onNodeWithText("カフェ").assertExists()
     }
 
     @Test
