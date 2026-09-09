@@ -115,13 +115,18 @@ class SerendipityLogOverlayTest {
 
     @Test
     fun `closing and reopening the overlay fires onShown a second time, and the newly refreshed visitLog is what's rendered`() {
-        // Codex-reported gap: an earlier version of this test mounted the screen
-        // continuously and mutated visitLog mid-composition, so it never actually
-        // closed/reopened the overlay and would still pass even if reopening stopped
-        // calling onShown. This drives the real contract: MapScreen toggles `visible`
-        // off (system Back / onDismiss) and back on, and only the *second* onShown
-        // call is expected to have delivered the caller's freshly reloaded visitLog —
-        // exactly "画面再表示時の再読込" (AC④).
+        // Codex-reported gap (round 2): the previous version of this test set
+        // `visitLog` to the "fresh" data directly, independent of `onShown` —
+        // so it would still pass even if `onShown` fired but the caller never
+        // actually used it to reload data. The real contract (see
+        // SerendipityLogScreen.kt's LaunchedEffect(Unit) { onShown() }) is that
+        // MapScreen's own onShown handler is what re-fetches visitLog on each
+        // reopen. This test now performs that reload FROM WITHIN onShown
+        // itself — the second invocation, on reopen — and asserts a uniquely
+        // titled new row that only the second onShown could have supplied.
+        val parkSpot = Spot(id = "spot-2", lat = 35.1, lng = 139.1, title = "公園", memo = "")
+        val newVisit = VisitRecord(id = "visit-2", spotId = "spot-2", spotTitle = "公園", recordedAt = 1_700_000_100_000L)
+
         var shownCount = 0
         var visible by mutableStateOf(true)
         var visitLog by mutableStateOf(listOf(visit))
@@ -129,32 +134,35 @@ class SerendipityLogOverlayTest {
             SerendipityLogOverlay(
                 visible = visible,
                 visitLog = visitLog,
-                spots = listOf(spot),
+                spots = listOf(spot, parkSpot),
                 onDismiss = { visible = false },
                 onDeleteRecord = {},
-                onShown = { shownCount++ },
+                onShown = {
+                    shownCount++
+                    // Simulates MapScreen's real reload-on-show behavior: only
+                    // the second call (the reopen) finds the newly recorded visit.
+                    if (shownCount == 2) visitLog = listOf(visit, newVisit)
+                },
             )
         }
         composeTestRule.waitForIdle()
         assertEquals(1, shownCount)
         composeTestRule.onNodeWithText("カフェ").assertExists()
+        composeTestRule.onNodeWithText("公園").assertDoesNotExist()
 
         // Close, exactly as a system Back would (see the onDismiss tests above).
         visible = false
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Serendipity Log").assertDoesNotExist()
 
-        // While closed, the caller (MapScreen's SpotViewModel) records a new visit —
-        // this is the state a real reopen would find "freshly loaded".
-        val newVisit = VisitRecord(id = "visit-2", spotId = "spot-1", spotTitle = "カフェ", recordedAt = 1_700_000_100_000L)
-        visitLog = listOf(visit, newVisit)
-
-        // Reopen.
+        // Reopen — the second onShown fires and, per the contract under test,
+        // is itself what delivers the freshly recorded visit.
         visible = true
         composeTestRule.waitForIdle()
 
         assertEquals("reopening must trigger a second onShown, not merely reuse the first", 2, shownCount)
         composeTestRule.onNodeWithText("Serendipity Log").assertExists()
+        composeTestRule.onNodeWithText("公園").assertExists()
     }
 
     @Test
