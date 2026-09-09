@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -157,23 +156,22 @@ fun MapScreen(
     // 値の意味は変えていない（下の signedIn 使用箇所と同じ）。
     val signedIn = uiState.user != null
 
-    // showVisitLogはrememberSaveableのため、プロセス強制終了後の復元でもtrueのまま
-    // 戻りうる。その場合ツールバーのクリックハンドラは実行されないため、ここで
-    // 「この画面が表示されるたびに」読み直す（Codexレビュー指摘、PR #27）。
-    // 通常のクリックで開く経路もこれ1本に統一し、二重の読み直しを避ける。
-    BackHandler(enabled = showVisitLog) { showVisitLog = false }
-
     // Serendipity Log は地図画面を丸ごと差し替える別画面として表示する（SPOT-04-S02-T01）。
     // 検索・共有取り込み等、地図画面向けのLaunchedEffectより前でreturnし、履歴表示中は
     // それらを動かさない（ユーザーが明示的に開いた別画面という位置づけのため）。
-    if (showVisitLog) {
-        LaunchedEffect(Unit) { onRefreshVisitLog() }
-        SerendipityLogScreen(
+    // BackHandler・再読込・条件描画の実体は[SerendipityLogOverlay]側にある
+    // （SPOT-04-S02-T03でRobolectricテスト対象として切り出した。MapScreen自体は
+    // GoogleMapを含みテストコストが高いため、このオーバーレイ部分だけを直接検証する）。
+    if (
+        SerendipityLogOverlay(
+            visible = showVisitLog,
             visitLog = uiState.visitLog,
             spots = uiState.spots,
-            onBack = { showVisitLog = false },
+            onDismiss = { showVisitLog = false },
             onDeleteRecord = onDeleteVisitRecord,
+            onShown = onRefreshVisitLog,
         )
+    ) {
         return
     }
 

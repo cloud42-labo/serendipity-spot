@@ -1,5 +1,6 @@
 package com.cloud42labo.serendipityspot.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -173,4 +175,39 @@ fun SerendipityLogScreen(
             }
         }
     }
+}
+
+/**
+ * [MapScreen]がSerendipity Logを丸ごと差し替える別画面として重ねる部分を切り出したもの
+ * （SPOT-04-S02-T03）。[MapScreen]は[GoogleMap][com.google.maps.android.compose.GoogleMap]を
+ * 含みRobolectricでの実描画が高コストなため、「システムBackで地図へ復帰する」という
+ * ACをMapScreen全体を描画せずに検証できるよう、実装をそのままここへ移した
+ * （[MapScreen]側は本関数を呼ぶだけで、ロジックの複製ではない）。
+ *
+ * [visible]がtrueの間だけ[SerendipityLogScreen]を描画し、システムBack（または[onDismiss]の
+ * 明示的な呼び出し）で[onDismiss]を呼ぶ。戻り値は[visible]をそのまま返す。呼び出し側
+ * （[MapScreen]）はこれがtrueの間、地図本体の描画をスキップする（`return`）契約。
+ */
+@Composable
+fun SerendipityLogOverlay(
+    visible: Boolean,
+    visitLog: List<VisitRecord>,
+    spots: List<Spot>,
+    onDismiss: () -> Unit,
+    onDeleteRecord: (String) -> Unit,
+    onShown: () -> Unit = {},
+): Boolean {
+    BackHandler(enabled = visible) { onDismiss() }
+    if (visible) {
+        // 開くたびに読み直す（Codexレビュー指摘、PR #27）。プロセス復元でvisibleが
+        // 直接trueに戻る経路（クリック以外）でも取りこぼさないため。
+        LaunchedEffect(Unit) { onShown() }
+        SerendipityLogScreen(
+            visitLog = visitLog,
+            spots = spots,
+            onBack = onDismiss,
+            onDeleteRecord = onDeleteRecord,
+        )
+    }
+    return visible
 }
