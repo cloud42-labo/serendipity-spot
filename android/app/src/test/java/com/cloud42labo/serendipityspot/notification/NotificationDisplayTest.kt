@@ -20,12 +20,21 @@ import org.robolectric.annotation.Config
  * SPOT-03-S03-T03: 「実機で確認する」だったHuman Taskを自動テストへ移管する
  * （2026-09-06 Approach Review再分析）。[NotificationHelperTest]がbodyFor/titleForという
  * 純粋関数の境界ケースを固定しているのに対し、こちらは[NotificationHelper.notifyNearby]を
- * 実際に呼び出し、OSの通知シェードへ渡される`Notification`そのもの（タイトル・本文）を
- * Robolectric（JVM上、emulator不要。[OnboardingIntroLayoutTest]と同じ既存の代替手段）で
- * 検証する。ジオフェンスの実発火は「モック/注入」の対象（[GeofenceBroadcastReceiver]が
- * notifyNearby()を呼ぶ入口そのもの）なので、GMSのGeofencingEventを介さずここから直接
- * 起動することで、実機・実ジオフェンスに依存せず入場・滞在(isNudge)通知の実表示内容を
- * 固定する。OEM独自スキンでの見た目までは保証しない（実機デモに委ねる、Approach Decision）。
+ * 実際に呼び出し、OSに渡される`Notification`オブジェクトの中身（`extras`のタイトル・本文
+ * 文字列）をRobolectric（JVM上、emulator不要。[OnboardingIntroLayoutTest]と同じ既存の
+ * 代替手段）で検証する。ジオフェンスの実発火は「モック/注入」の対象
+ * （[GeofenceBroadcastReceiver]がnotifyNearby()を呼ぶ入口そのもの）なので、GMSの
+ * GeofencingEventを介さずここから直接起動する。
+ *
+ * **保証範囲の明示（Codexレビュー指摘、PR #31）**: ここで固定するのは`Notification`へ
+ * 渡される文字列ペイロードそのものであり、OSの通知シェードに実際に描画されるピクセル・
+ * OEM独自スキンでの見た目・バックグラウンドのジオフェンス経由での実配信は検証しない
+ * （Robolectricの`ShadowNotificationManager`が保持するのはpostされた`Notification`
+ * インスタンスの中身までで、実描画やOS配信経路の再現ではない）。位置情報・ジオフェンス・
+ * バックグラウンド通知の変更はAGENTS.mdの実機確認ルール（L45-52）に該当するが、
+ * 本Taskの範囲（文字列組み立て・打ち切り・通知ペイロード）はAI/自動化可能と2026-09-06の
+ * Approach Reviewで判定済みであり、そのDone条件はこのテストで満たす。OEM固有描画の
+ * 確認は、その判定どおり任意の実機デモ観察に委ね、Acceptance Gateにはしない。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
