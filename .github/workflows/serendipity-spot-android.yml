@@ -191,7 +191,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.SERENDIPITY_RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_PASSWORD: ${{ secrets.SERENDIPITY_RELEASE_KEY_PASSWORD }}
         run: |
-          normalize() { tr -d ': \\r' | tr 'A-Z' 'a-z'; }
+          normalize() { tr -d ': \r' | tr 'A-Z' 'a-z'; }
 
           KEYSTORE_SHA1=$(keytool -list -v \
             -keystore app/release.keystore \
