@@ -188,12 +188,14 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 外出先など、PCが手元に無い状態で修正を試したいとき用。`main` に変更が入るたびに
 [ワークフロー](../.github/workflows/serendipity-spot-android.yml)がAPKをビルドし、
 `dev`（debug署名）タグのプレリリースに貼り直す。release用の鍵を設定していれば、
-同時に `latest`（release署名、正式配布用）タグにも貼り直す。**どちらもダウンロードURL
-は毎回同じ**なので、スマホのブラウザでこれを開けばよい。
+同時に `latest`（release署名、正式配布用）タグへ `app-release.apk` と
+Google Play Console提出用の `app-release.aab` を貼り直す。**ダウンロードURLは毎回同じ**。
+APKは端末への直接配布、AABはPlay Consoleへのアップロードに使う。
 
 ```
 https://github.com/cloud42-labo/serendipity-spot/releases/download/dev/app-debug.apk
 https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk
+https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.aab
 ```
 
 `dev` と `latest` は**中身が差し替わる可動タグ**なので、これだけだと「この版のコードは
