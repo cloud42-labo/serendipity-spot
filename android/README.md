@@ -200,7 +200,7 @@ https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-re
 
 `dev` と `latest` は**中身が差し替わる可動タグ**なので、これだけだと「この版のコードは
 どれか」を後から辿れない。そのためワークフローは、`versionName` が変わったときに
-`v<versionName>`（例: `v1.0.0`）の**動かないリリース**も1つ作り、その時点のAPKを付ける。
+`v<versionName>`（例: `v1.0.0`）の**動かないリリース**も1つ作り、その時点のAPK/AABを付ける。
 過去の版に戻したいとき、`deliveries/` の各バージョンフォルダに対応するコードを見たいときは
 こちらを使う。
 
@@ -225,7 +225,7 @@ CIが使う鍵は手元の `~/.android/debug.keystore` とは別物になるた�
 Cloud Console でAndroid型のOAuthクライアントを**もう1つ**作り、CIの鍵のSHA-1を登録する。
 同じパッケージ名で複数登録してよい。
 
-CIの鍵のSHA-1は、Actions のログの `Verify APK signer` / `Verify release APK signer`
+CIの鍵のSHA-1は、Actions のログの `Verify APK signer` / `Verify release APK/AAB signer`
 ステップに出る。このステップはAPKの実際の署名者を検証し、鍵と一致しなければビルドを落とす。
 
 手元の `debug.keystore` をそのままシークレットに入れれば、この2番目の登録は不要。
