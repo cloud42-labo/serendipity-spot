@@ -180,11 +180,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "https://github.com/${{ github.repository }}/releases/download/dev/app-debug.apk" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build release APK
+      - name: Build release APK and AAB
         if: ${{ env.HAS_RELEASE_KEY == 'true' }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
 
-      - name: Verify release APK signer
+      - name: Verify release APK/AAB signer
         if: ${{ env.HAS_RELEASE_KEY == 'true' }}
         env:
           RELEASE_KEY_ALIAS: ${{ secrets.SERENDIPITY_RELEASE_KEY_ALIAS }}
@@ -203,14 +203,33 @@ jobs:
             app/build/outputs/apk/release/app-release.apk \
             | grep -i 'SHA-1 digest' | head -1 | sed 's/.*: *//' | normalize)
 
+          # AABはJAR署名されるため、Play Consoleへ渡す現物から署名証明書を読む。
+          AAB_SHA1=$(keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab \
+            | grep -E '^[[:space:]]*SHA1:' | head -1 | sed 's/.*SHA1: *//' | normalize)
+
           echo "keystore  : $KEYSTORE_SHA1"
           echo "APK signer: $APK_SHA1"
+          echo "AAB signer: $AAB_SHA1"
 
           if [ -z "$APK_SHA1" ] || [ "$KEYSTORE_SHA1" != "$APK_SHA1" ]; then
             echo "::error::release APKがCIのrelease鍵で署名されていない。"
             exit 1
           fi
-          echo "::notice::release APK signer SHA-1 = $APK_SHA1 （Cloud Console のAndroid型OAuthクライアントに登録されている必要がある）"
+          if [ -z "$AAB_SHA1" ] || [ "$KEYSTORE_SHA1" != "$AAB_SHA1" ]; then
+            echo "::error::release AABがCIのrelease鍵で署名されていない。"
+            exit 1
+          fi
+          echo "::notice::release APK/AAB signer SHA-1 = $KEYSTORE_SHA1"
+
+      - name: Upload release APK/AAB as artifact
+        if: ${{ env.HAS_RELEASE_KEY == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-${{ github.sha }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
 
       - name: Publish to latest release
         if: ${{ env.HAS_RELEASE_KEY == 'true' }}
@@ -218,6 +237,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
 
           # 配布URLは latest 固定で中身だけ差し替わるため、リリースページの本文が
           # 唯一の「今どの版で、何が変わったか」の手がかりになる。毎回書き直す。
@@ -253,11 +273,12 @@ jobs:
           gh release view latest > /dev/null 2>&1 || \
             gh release create latest --title "latest（最新の正式ビルド）" --notes "初回"
           gh release edit latest --title "latest（v$VERSION）" --notes-file release-notes.md
-          gh release upload latest "$APK" --clobber
+          gh release upload latest "$APK" "$AAB" --clobber
 
           echo "### release APK を更新した (v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK: https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"
+          echo "AAB: https://github.com/${{ github.repository }}/releases/download/latest/app-release.aab" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tag this version
         # `latest` は中身が差し替わる可動タグなので、これだけだと「v1.0.0 のコードは
@@ -293,6 +314,8 @@ jobs:
             --target "${{ github.sha }}" \
             --title "$TAG" \
             --notes-file tag-notes.md
-          gh release upload "$TAG" app/build/outputs/apk/release/app-release.apk
+          gh release upload "$TAG" \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/bundle/release/app-release.aab
 
           echo "::notice::$TAG を作成した"

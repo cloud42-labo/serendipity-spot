@@ -188,17 +188,19 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 外出先など、PCが手元に無い状態で修正を試したいとき用。`main` に変更が入るたびに
 [ワークフロー](../.github/workflows/serendipity-spot-android.yml)がAPKをビルドし、
 `dev`（debug署名）タグのプレリリースに貼り直す。release用の鍵を設定していれば、
-同時に `latest`（release署名、正式配布用）タグにも貼り直す。**どちらもダウンロードURL
-は毎回同じ**なので、スマホのブラウザでこれを開けばよい。
+同時に `latest`（release署名、正式配布用）タグへ `app-release.apk` と
+Google Play Console提出用の `app-release.aab` を貼り直す。**ダウンロードURLは毎回同じ**。
+APKは端末への直接配布、AABはPlay Consoleへのアップロードに使う。
 
 ```
 https://github.com/cloud42-labo/serendipity-spot/releases/download/dev/app-debug.apk
 https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.apk
+https://github.com/cloud42-labo/serendipity-spot/releases/download/latest/app-release.aab
 ```
 
 `dev` と `latest` は**中身が差し替わる可動タグ**なので、これだけだと「この版のコードは
 どれか」を後から辿れない。そのためワークフローは、`versionName` が変わったときに
-`v<versionName>`（例: `v1.0.0`）の**動かないリリース**も1つ作り、その時点のAPKを付ける。
+`v<versionName>`（例: `v1.0.0`）の**動かないリリース**も1つ作り、その時点のAPK/AABを付ける。
 過去の版に戻したいとき、`deliveries/` の各バージョンフォルダに対応するコードを見たいときは
 こちらを使う。
 
@@ -223,7 +225,7 @@ CIが使う鍵は手元の `~/.android/debug.keystore` とは別物になるた�
 Cloud Console でAndroid型のOAuthクライアントを**もう1つ**作り、CIの鍵のSHA-1を登録する。
 同じパッケージ名で複数登録してよい。
 
-CIの鍵のSHA-1は、Actions のログの `Verify APK signer` / `Verify release APK signer`
+CIの鍵のSHA-1は、Actions のログの `Verify APK signer` / `Verify release APK/AAB signer`
 ステップに出る。このステップはAPKの実際の署名者を検証し、鍵と一致しなければビルドを落とす。
 
 手元の `debug.keystore` をそのままシークレットに入れれば、この2番目の登録は不要。
