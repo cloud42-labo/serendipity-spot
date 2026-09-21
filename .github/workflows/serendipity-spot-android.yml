@@ -3,8 +3,8 @@ name: serendipity-spot-android build
 # PCが手元に無くても、スマホから直接ダウンロードして入れられるAPKを用意するための
 # ワークフロー。main に入った変更を毎回ビルドし、`dev` タグのプレリリース（debug署名）に
 # app-debug.apk を上書きで貼り直す。release用の鍵が設定されていれば、同時に `latest`
-# タグ（正式配布用、release署名）にも app-release.apk を貼り直す。ダウンロードURLは
-# どちらも常に同じ。
+# タグ（正式配布用、release署名）にも app-release.apk とPlay Console提出用の
+# app-release.aab を貼り直す。ダウンロードURLはどちらも常に同じ。
 #
 # 必要なシークレット（Settings > Secrets and variables > Actions）:
 #   SERENDIPITY_DEBUG_KEYSTORE_BASE64  必須。デバッグ署名鍵をbase64にしたもの。
@@ -265,8 +265,8 @@ jobs:
             echo "$CHANGES"
             echo
             echo "---"
-            echo "\`main\` の最新release署名ビルド。push のたびに \`app-release.apk\` が差し替わる。"
-            echo "ダウンロードURLは常に同じ。"
+            echo "\`main\` の最新release署名ビルド。push のたびに \`app-release.apk\` と \`app-release.aab\` が差し替わる。"
+            echo "APKは端末への直接配布、AABはGoogle Play Console提出用。ダウンロードURLは常に同じ。"
             echo "<!-- built-from: ${{ github.sha }} -->"
           } > release-notes.md
 
@@ -275,7 +275,7 @@ jobs:
           gh release edit latest --title "latest（v$VERSION）" --notes-file release-notes.md
           gh release upload latest "$APK" "$AAB" --clobber
 
-          echo "### release APK を更新した (v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### release APK/AAB を更新した (v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "APK: https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"
           echo "AAB: https://github.com/${{ github.repository }}/releases/download/latest/app-release.aab" >> "$GITHUB_STEP_SUMMARY"
