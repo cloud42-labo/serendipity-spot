@@ -8,14 +8,14 @@
 GitHub Releasesから直接APKを配る形。Google Play一般公開は、それとは別の公開チャネルを
 新設する位置づけで、既存の直接配布を置き換えるものではない（継続するかはHuman判断）。
 
-- 更新日: 2026-08-23 JST
+- 更新日: 2026-09-22 JST
 - 対応PR: #25
 
 ## サマリー
 
 | 項目 | 状態 |
 | :--- | :--- |
-| 1. アプリ署名 | 🟡 **Human作業完了**。release鍵生成・バックアップ・OAuth SHA-1登録・GitHub Secret更新済み。CI署名検証は`SPOT-06-S01-T02`で実施中 |
+| 1. アプリ署名 | 🔴 **Play配布版の実機Gateで不具合検出**。upload/release鍵のSHA-1登録は完了していたが、Play App Signingの**アプリ署名鍵SHA-1**がGoogle CloudのOAuth / Maps API制限へ未登録。`BUG-SPOT-06-01`で是正中 |
 | 2. AAB (Android App Bundle) | 🟡 生成コマンド自体は成功を確認。**今回のrelease鍵での署名済み成果物検証はT02で実施中** |
 | 3. ストア掲載情報 | 🟡 文言は下書き済み。**アイコン・フィーチャーグラフィックはAIで作成済みだがPlay Console/実機での最終検証は未実施。スクリーンショットは未着手（いずれも実機/エミュレータ必須）** |
 | 4. プライバシー/データ安全性 | 🟡 プライバシーポリシー・バックグラウンド位置情報の初回開示・Play申告文・デモ動画手順を整備済み。**Data Safetyフォームの実際の入力のみHuman未実施** |
@@ -41,6 +41,29 @@ GitHub Releasesから直接APKを配る形。Google Play一般公開は、それ
 - 既存の`STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`は従来値を維持し、CIで整合性を検証する
 
 **Google Play自体は「Play App Signing」を使うのが現在の標準**。Google Play Console側がPlay配布用の署名鍵を管理し、開発者はアップロード鍵で署名したAABを提出する。上記のrelease鍵はそのアップロード鍵として使う。
+
+
+### Play App Signingのアプリ署名鍵をAPIプロバイダへ登録する（必須）
+
+Play App Signingでは、AABをアップロードするときの**upload/release鍵**と、ユーザー端末へ配布されるAPKを署名する**アプリ署名鍵**は別物。
+Google Playから配布されたAPKでGoogle Sign-In / Google Maps等を使う場合、**Play Consoleのアプリ署名鍵証明書のSHA-1**をAPIプロバイダへ登録しなければならない。
+
+実施手順:
+
+1. Play Console → **Google Playによる保護** → **Google Play ストアでの配信** → **Play アプリ署名に移動**。
+2. **アプリ署名鍵**セクションのSHA-1をコピーする。
+   - 量子対応ハイブリッド署名が有効な場合は、Play Consoleに表示される対象鍵の指紋をすべて確認し、APIプロバイダ側へ登録する。
+3. Google Cloud ConsoleのAndroid型OAuthクライアントへ、パッケージ名
+   `com.cloud42labo.serendipityspot` と上記SHA-1の組み合わせを追加する。
+   - 既存のupload/release鍵用OAuthクライアントは削除しない。
+4. Maps / Directionsで使うAPIキーのAndroidアプリ制限にも、同じパッケージ名 + 上記SHA-1を追加する。
+5. **Google Play経由でインストールしたAPK**で以下を実機確認する。
+   - Googleログインが成功する
+   - Google Mapsが正常描画される
+   - Drive/Sheets許可後にスポットを読み書きできる
+6. 上記が通るまで、12人/14日のクローズドテスター募集を開始しない。
+
+2026-09-22 JST、クローズドテスト版42 (1.6.1)で「Googleログイン不能 + 地図未描画」を実機で検出。upload/release鍵のSHA-1だけを登録していたことが原因候補として判明し、`BUG-SPOT-06-01`をP0で起票した。
 
 → Human Request: **SPOT-06-S01-H01 完了**
 → AI検証: **SPOT-06-S01-T02**（release署名CIの検証）
