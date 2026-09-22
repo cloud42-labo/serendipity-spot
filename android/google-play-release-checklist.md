@@ -8,15 +8,15 @@
 GitHub Releasesから直接APKを配る形。Google Play一般公開は、それとは別の公開チャネルを
 新設する位置づけで、既存の直接配布を置き換えるものではない（継続するかはHuman判断）。
 
-- 更新日: 2026-08-23 JST
-- 対応PR: #25
+- 更新日: 2026-09-22 JST（[BUG-SPOT-06-01](https://app.notion.com/p/3e3fbd826f3b816c8488d9cdcadbf109)対応）
+- 対応PR: #25, #35（クローズ・役割分離のため再作成）
 
 ## サマリー
 
 | 項目 | 状態 |
 | :--- | :--- |
-| 1. アプリ署名 | 🟡 **Human作業完了**。release鍵生成・バックアップ・OAuth SHA-1登録・GitHub Secret更新済み。CI署名検証は`SPOT-06-S01-T02`で実施中 |
-| 2. AAB (Android App Bundle) | 🟡 生成コマンド自体は成功を確認。**今回のrelease鍵での署名済み成果物検証はT02で実施中** |
+| 1. アプリ署名 | 🔴 **Play配布版の実機確認でGoogleログイン不能・地図未描画を検出（`BUG-SPOT-06-01`）**。upload/release鍵のSHA-1登録は完了していたが、Play App Signingが配布時に再署名する**アプリ署名鍵**のSHA-1がGoogle CloudのOAuth / Maps APIキー制限へ未登録だった。詳細は下記「Play App Signingのアプリ署名鍵をAPIプロバイダへ登録する」節 |
+| 2. AAB (Android App Bundle) | ✅ CIでrelease鍵署名済みAABの生成・署名検証・配布まで完了（`SPOT-06-S02-T01`） |
 | 3. ストア掲載情報 | 🟡 文言は下書き済み。**アイコン・フィーチャーグラフィックはAIで作成済みだがPlay Console/実機での最終検証は未実施。スクリーンショットは未着手（いずれも実機/エミュレータ必須）** |
 | 4. プライバシー/データ安全性 | 🟡 プライバシーポリシー・バックグラウンド位置情報の初回開示・Play申告文・デモ動画手順を整備済み。**Data Safetyフォームの実際の入力のみHuman未実施** |
 | 5. 対象APIレベル | ✅ 完了（36へ引き上げ済み） |
@@ -40,23 +40,66 @@ GitHub Releasesから直接APKを配る形。Google Play一般公開は、それ
 - `SERENDIPITY_RELEASE_KEYSTORE_BASE64`を今回の鍵で更新
 - 既存の`STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`は従来値を維持し、CIで整合性を検証する
 
-**Google Play自体は「Play App Signing」を使うのが現在の標準**。Google Play Console側がPlay配布用の署名鍵を管理し、開発者はアップロード鍵で署名したAABを提出する。上記のrelease鍵はそのアップロード鍵として使う。
+**Google Play自体は「Play App Signing」を使うのが現在の標準**。Google Play Console側がPlay配布用の署名鍵を管理し、開発者はアップロード鍵で署名したAABを提出する。上記のrelease鍵はそのアップロード鍵として使う。**AAB形式でのアップロードはPlay App Signingへの登録が必須**（オプトアウトできない）。
 
-→ Human Request: **SPOT-06-S01-H01 完了**
-→ AI検証: **SPOT-06-S01-T02**（release署名CIの検証）
+### Play App Signingのアプリ署名鍵をAPIプロバイダへ登録する（必須・未実施）
+
+Play App Signingでは、AABをアップロードするときの**upload/release鍵**と、
+ユーザー端末へ実際に配布されるAPKを署名する**アプリ署名鍵**が別物になる。
+Google Playはアップロードされたupload鍵署名のAABを受け取り、内部で自前のアプリ署名鍵で
+**再署名したAPK**を各端末に配信する。
+
+Google Sign-In（Credential Manager）はCredential Manager経由でも内部的に
+「呼び出し元アプリの署名証明書（パッケージ名+SHA-1）が、同じGoogle Cloudプロジェクトに
+登録されたAndroid型OAuthクライアントと一致するか」を検証する。Google Maps SDKのAPIキーも
+Androidアプリ制限で同様にパッケージ名+SHA-1を照合する。**どちらも「今インストールされている
+APKの実際の署名証明書」を見る**ため、Play App Signingで再署名されたAPKのSHA-1が
+未登録だと、ログインとMapsの両方が同時に、かつGitHub直接配布のAPK（upload/release鍵で
+そのまま配布、再署名を経ない）では再現しない形で失敗する。これがBUG-SPOT-06-01の症状と一致する。
+
+これまでのAI検証（`SPOT-06-S01-T02`のCI署名検証、`SPOT-06-S02-T01`のAAB署名検証）は
+いずれも「upload/release鍵で署名した成果物」までしか確認しておらず、**Play Consoleが
+生成するアプリ署名鍵の存在・SHA-1はAIのサンドボックスから取得できない**（Play Console
+アカウントが無いため）。取得・登録はHuman-onlyの操作として`HUMAN-BUG-SPOT-06-01-1`へ切り出した。
+
+実施手順（`HUMAN-BUG-SPOT-06-01-1`参照）:
+
+1. Play Console → 対象アプリ → **アプリの整合性**（旧:リリース → セットアップ →
+   アプリの署名）→ **Play アプリ署名** タブを開く。
+2. **アプリ署名鍵証明書**の欄に表示されるSHA-1証明書フィンガープリントをコピーする。
+3. Google Cloud Console → 対象プロジェクト → 「APIとサービス」→「認証情報」→
+   「認証情報を作成」→「OAuthクライアントID」→ 種類は **Android** で新規作成し、
+   パッケージ名 `com.cloud42labo.serendipityspot` + 上記SHA-1を登録する。
+   （既存のupload/release鍵用・CI鍵用のAndroid型クライアントは削除しない。同じ
+   パッケージ名で複数登録してよい。）
+4. Maps/Directions用APIキーの「アプリケーションの制限」（Androidアプリ）に、
+   同じパッケージ名 + 上記SHA-1の組を追加する。
+5. Play Consoleのクローズドテストからインストールした端末（Play配布版）で、
+   Googleログイン・地図描画・スポット登録（Drive/Sheetsアクセス）を再確認する。
+
+→ Human Request: **HUMAN-BUG-SPOT-06-01-1**（Play ConsoleとGoogle Cloud Consoleの
+実操作のみ。AIはここまでの原因確定・手順の言語化・正本更新を担当した）
+
+→ Human Request: **SPOT-06-S01-H01 完了**（upload/release鍵自体の生成・登録）
+→ AI検証: **SPOT-06-S01-T02**（release署名CIの検証）・**SPOT-06-S02-T01**（AAB署名CIの検証）
 
 ## 2. AAB (Android App Bundle)
 
-ビルド生成コマンド自体は成功を確認済み。今回のrelease鍵を使った署名済み成果物の検証は`SPOT-06-S01-T02`で行う。
+**完了（`SPOT-06-S02-T01`）。** CIで`bundleRelease`により署名済みAABを生成し、AABの
+署名証明書SHA-1がrelease keystoreと一致することを機械検証したうえで、Actions artifact
+および`latest` GitHub Releaseの固定URLから取得できる。
 
 ```sh
 ./gradlew bundleRelease
 # → app/build/outputs/bundle/release/app-release.aab が生成される
 ```
 
-release鍵未設定時には未署名成果物しか生成できないため、Play Console提出可否の最終判定には署名済みAABでの検証が必要。実機でのインストール・起動確認は`SPOT-06-S02`（テストトラック配布検証）のスコープとする。
-
 `isMinifyEnabled = false`（コード圧縮なし）のため、圧縮関連のProGuard起因の不具合は無い。将来`true`に変える場合は改めて実機確認する。
+
+**注意**: このAAB署名検証は「upload/release鍵で正しく署名されているか」のみを保証する。
+Play Consoleがアップロード後に生成する**アプリ署名鍵**での再署名結果は、AI側のCIからは
+検証できない（Play Consoleアカウントが必要）。上記「1. アプリ署名」の
+Play App Signing節を参照。
 
 ## 3. ストア掲載情報
 
@@ -215,5 +258,6 @@ Android 15/16では通知・位置情報・バックグラウンド動作まわ�
 | SPOT-06-S01-H01 | release署名鍵の生成・Secrets登録 | ✅ Human作業完了。CI検証はT02へ移管 |
 | SPOT-06-S01-H02 | ストア掲載用画像素材（アイコン512×512・フィーチャーグラフィック・スクリーンショット）の最終実機確認 | 🟡 アイコン・フィーチャーグラフィックはAIで作成済み（`store-assets/`、形式・角丸は差分検証済み）。**Play Consoleアップロード確認・マスク後の最終見た目・スクリーンショット撮影がすべて残作業** |
 | SPOT-06-S01-H03 | Play Console Data Safetyフォーム入力、カテゴリ最終決定、Play Consoleアカウントセットアップ | 🟡 未完了 |
+| HUMAN-BUG-SPOT-06-01-1 | Play App Signingのアプリ署名鍵SHA-1を取得し、Google CloudのOAuthクライアント・Maps APIキー制限へ登録する | 🔴 未完了（`BUG-SPOT-06-01`、P0、クローズドテスト継続のブロッカー） |
 
 Play Consoleの開発者アカウント登録自体（本人確認・登録料の支払い）はHumanのみが行える。
