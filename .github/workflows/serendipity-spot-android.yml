@@ -21,6 +21,13 @@ name: serendipity-spot-android build
 #   SERENDIPITY_RELEASE_STORE_PASSWORD
 #   SERENDIPITY_RELEASE_KEY_ALIAS
 #   SERENDIPITY_RELEASE_KEY_PASSWORD
+#
+#   注意（BUG-SPOT-06-01）: 上記のSHA-1登録は「upload/release鍵」の分でしかない。
+#   Google Playで配布する場合、Play App Signingが配布時にAPKを別の「アプリ署名鍵」で
+#   再署名するため、そのSHA-1も同じOAuthクライアント・Maps APIキーへ追加登録しないと
+#   Play配布版だけGoogleログイン・地図表示が失敗する。この鍵はPlay Consoleでしか
+#   確認できず、CIからは検証できない。手順は android/README.md の3./4.節と
+#   android/google-play-release-checklist.md を参照。
 
 on:
   push:
@@ -220,6 +227,7 @@ jobs:
             exit 1
           fi
           echo "::notice::release APK/AAB signer SHA-1 = $KEYSTORE_SHA1"
+          echo "::notice::このSHA-1はupload/release鍵のもの。Play Console配布版はPlay App Signingが別のアプリ署名鍵で再署名するため、そのSHA-1も別途OAuth/Maps APIキーへ登録する必要がある（android/google-play-release-checklist.md、BUG-SPOT-06-01）。"
 
       - name: Upload release APK/AAB as artifact
         if: ${{ env.HAS_RELEASE_KEY == 'true' }}
@@ -279,6 +287,8 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "APK: https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk" >> "$GITHUB_STEP_SUMMARY"
           echo "AAB: https://github.com/${{ github.repository }}/releases/download/latest/app-release.aab" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Play Consoleへこの app-release.aab を提出する前に、Play App Signingのアプリ署名鍵SHA-1がGoogle CloudのOAuthクライアント・Maps APIキー制限へ登録済みか確認する（android/google-play-release-checklist.md、BUG-SPOT-06-01）。未登録だとPlay配布版だけGoogleログイン・地図表示が失敗する。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tag this version
         # `latest` は中身が差し替わる可動タグなので、これだけだと「v1.0.0 のコードは
