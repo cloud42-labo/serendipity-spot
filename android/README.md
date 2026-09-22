@@ -110,6 +110,16 @@ Android用OAuthクライアントはパッケージ名+SHA-1で識別される�
 クラウドセッションでビルドしたAPKを実機に入れたりする場合は、そのマシンのSHA-1も
 同じOAuthクライアントに追加登録しないとサインインが失敗する。
 
+> **Google Playで配布する場合は、upload/release鍵のSHA-1を登録するだけでは足りない。**
+> Play App Signingを使うと（AABアップロードでは必須・オプトアウト不可）、Google Playは
+> 開発者がアップロードしたupload/release鍵署名のAABを受け取り、**別の「アプリ署名鍵」で
+> 再署名したAPK**を各端末に配る。実機にインストールされるのはこの再署名済みAPKなので、
+> **Play Consoleの「Play アプリ署名」に表示されるアプリ署名鍵証明書のSHA-1も**、
+> 同じパッケージ名で追加のAndroid型OAuthクライアントとして登録しないと、
+> **Play配布版だけ**サインインが失敗する（ビルドも起動もGitHub直接配布のAPKでのログインも
+> 問題なく通るため気づきにくい。詳細: [google-play-release-checklist.md](google-play-release-checklist.md)
+> の「Play App Signingのアプリ署名鍵をAPIプロバイダへ登録する」節、`BUG-SPOT-06-01`）。
+
 ### 3-2. OAuthクライアントID（ウェブアプリケーション用）も発行する
 
 Credential Manager のサインインには、Android用とは**別に**「ウェブ アプリケーション」型の
@@ -131,6 +141,11 @@ Credential Manager のサインインには、Android用とは**別に**「ウ�
 > リクエストに`X-Android-Package`/`X-Android-Cert`ヘッダーが必須になる（アプリ側は
 > 実行中のAPK自身の署名から自動で付与するので、追加設定は不要）。ヘッダーが正しくても
 > 上のAPI制限にDirections APIが入っていないと`REQUEST_DENIED`になる。
+
+> **Maps APIキーの「アプリケーションの制限」も、Play App Signingのアプリ署名鍵のSHA-1を
+> 追加登録する必要がある。** 理由は3.の注記と同じで、Play配布版の実機で見えるSHA-1が
+> upload/release鍵とは異なるため。登録しないとPlay配布版だけ地図が描画されない
+> （APIキー自体は有効なのでビルド・起動は通り、切り分けが難しい）。
 
 ### 5. ローカルに設定を書く
 
@@ -181,7 +196,9 @@ Gradle 本体・Maven Central・plugins.gradle.org は既定で許可済みな�
 ## Google Play 一般公開への準備
 
 [google-play-release-checklist.md](google-play-release-checklist.md) 参照
-（`SPOT-06-S01`、進行中）。
+（`SPOT-06-S01`、進行中）。**Play App Signing利用時はupload/release鍵とは別に
+「アプリ署名鍵」のSHA-1もOAuthクライアント・Maps APIキーへ登録が必要**（`BUG-SPOT-06-01`、
+上記3./4.の注記参照）。
 
 ## PCなしで最新版を端末に入れる（GitHub Actions）
 
@@ -227,6 +244,9 @@ Cloud Console でAndroid型のOAuthクライアントを**もう1つ**作り、C
 
 CIの鍵のSHA-1は、Actions のログの `Verify APK signer` / `Verify release APK/AAB signer`
 ステップに出る。このステップはAPKの実際の署名者を検証し、鍵と一致しなければビルドを落とす。
+**ただしこれは「CIがupload/release鍵で正しく署名したか」の検証であり、Google Playが
+配布時に再署名するアプリ署名鍵の検証ではない。** Play配布版向けの登録は
+上記「Google Play 一般公開への準備」を参照。
 
 手元の `debug.keystore` をそのままシークレットに入れれば、この2番目の登録は不要。
 
